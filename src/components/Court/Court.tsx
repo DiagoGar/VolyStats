@@ -4,7 +4,7 @@ import { calculatePercentage } from "@/utils/calculations";
 import { useEffect, useRef } from "react";
 import { useState } from "react";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
-import type { SpikeTrajectoriesByZone } from "@/components/Stats/Stats";
+import type { SpikeTrajectoriesByZone } from "@/hooks/useSpikeTrajectories";
 import "./court.css";
 
 interface Props {

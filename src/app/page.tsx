@@ -2,6 +2,7 @@
 
 import { Court } from "@/components/Court/Court";
 import { StatsPanel } from "@/components/Stats/StatsPanel";
+import { Stats } from "@/components/Stats/Stats";
 import { useMatchStats } from "@/hooks/useMatchStats";
 import { useSpikeTrajectories } from "@/hooks/useSpikeTrajectories";
 
@@ -26,6 +27,7 @@ export default function Page() {
       />
 
       <StatsPanel stats={stats} />
+      <Stats trajectories={trajectories} />
     </>
   );
 }

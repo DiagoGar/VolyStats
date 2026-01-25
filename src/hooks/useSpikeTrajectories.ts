@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SpikeVector } from "@/types/spike";
 import type { Zone } from "@/types/stats";
+import { createSpikeVector } from "@/utils/spikeMath";
 
 export type SpikeTrajectoriesByZone = Record<Zone, SpikeVector[]>;
 
@@ -17,30 +18,23 @@ export function useSpikeTrajectories() {
     useState<SpikeTrajectoriesByZone>(emptyTrajectories);
 
   const addTrajectory = (
-  zone: Zone,
-  start: { x: number; y: number },
-  end: { x: number; y: number }
-) => {
-  const dx = end.x - start.x;
-  const dy = start.y - end.y;
-  const angle = Math.atan2(dy, dx);
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
+    const spikeData = createSpikeVector(zone, start, end);
 
-  setTrajectories((prev) => ({
-    ...prev,
-    [zone]: [
-      ...prev[zone],
-      {
-        id: crypto.randomUUID(),
-        zone,
-        start,
-        end,
-        angle,
-        createdAt: Date.now(),
-      },
-    ],
-  }));
-};
-
+    setTrajectories((prev) => ({
+      ...prev,
+      [zone]: [
+        ...prev[zone],
+        {
+          id: crypto.randomUUID(),
+          ...spikeData,
+        },
+      ],
+    }));
+  };
 
   const resetTrajectories = () => setTrajectories(emptyTrajectories);
 
