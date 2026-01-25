@@ -1,6 +1,7 @@
 import { ZoneButton } from "./Zone";
 import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
+import { averageAngle } from "@/utils/spikeMath";
 import { useEffect, useRef } from "react";
 import { useState } from "react";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
@@ -120,6 +121,7 @@ export function Court({
           zone={drawZone}
           onClose={() => setDrawZone(null)}
           onSpikeDraw={onSpikeDraw}
+          averageAngle={averageAngle(spikeTrajectories[drawZone])}
         />
       )}
     </section>
