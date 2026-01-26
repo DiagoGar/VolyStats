@@ -1,89 +1,85 @@
+/* Contenedor principal */
+.court-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+}
+
+.court-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+  max-width: 1200px;
+}
+
+/* Mitad de cancha */
+.half-court {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.half-court-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  background-color: #333;
+  color: white;
+  border-radius: 4px;
+  gap: 8px;
+}
+
+.team-name {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.mode-toggle {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #f7931e;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.mode-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Divisor entre mitades */
+.court-divider {
+  width: 100%;
+  height: 1px;
+  background: #333;
+}
+
+/* Cancha individual */
 .court {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 12px;
+  gap: 8px;
 
-  width: 70vw;              
-  max-width: 900px;
-  min-width: 320px;
-
+  width: 100%;
+  max-width: 600px;
   aspect-ratio: 3 / 2;
 
-  border: 4px solid #333;
+  border: 1px solid #333;
   padding: 12px;
   background-color: #f7941d;
-}
-
-.court-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 16px;
-}
-
-.side-button {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-
-  background: #f7931e;
-  color: white;
-  font-size: 1.2rem;
-  font-weight: bold;
-
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-
-.side-button:active {
-  transform: scale(0.95);
-}
-
-.side-button.reset {
-  background: #c0392b;
-}
-
-.zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 18px;
-  font-weight: bold;
-
-  border: 2px solid #666;
-  background-color: #004b87;
-
-  cursor: pointer;
-  user-select: none;
-}
-
-.zone-label {
-  font-size: 1rem;
-  margin-bottom: 6px;
-  opacity: 0.9;
-}
-
-.zone-value {
-  font-size: clamp(1.8rem, 4vw, 3rem);
-  line-height: 1;
-}
-
-.zone:hover {
-  background-color: #005697 ;
-}
-
-.zone.disabled {
-  background-color: #ddd;
-  cursor: not-allowed;
-}
-
-.court {
   position: relative;
 }
 
@@ -94,8 +90,72 @@
   pointer-events: none;
 }
 
+/* Botón de reset */
+.reset-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #c0392b;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reset-button:hover {
+  background: #a93226;
+}
+
+.reset-button:active {
+  transform: scale(0.95);
+}
+
+/* Zonas */
 .zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+  font-weight: bold;
+
+  border: 1px solid #666;
+  background-color: #004b87;
+
+  cursor: pointer;
+  user-select: none;
   position: relative;
   z-index: 2;
+  transition: background-color 0.2s;
+}
+
+.zone-label {
+  font-size: 1rem;
+  margin-bottom: 6px;
+  opacity: 0.9;
+  color: white;
+}
+
+.zone-value {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+  color: white;
+}
+
+.zone:hover {
+  background-color: #005697;
+}
+
+.zone.disabled {
+  background-color: #ddd;
+  cursor: not-allowed;
+  color: #666;
+}
+
+.zone.disabled .zone-label,
+.zone.disabled .zone-value {
+  color: #666;
 }
 

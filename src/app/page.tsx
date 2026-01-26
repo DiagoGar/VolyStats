@@ -3,31 +3,29 @@
 import { Court } from "@/components/Court/Court";
 import { StatsPanel } from "@/components/Stats/StatsPanel";
 import { Stats } from "@/components/Stats/Stats";
-import { useMatchStats } from "@/hooks/useMatchStats";
-import { useSpikeTrajectories } from "@/hooks/useSpikeTrajectories";
+import { useGameStats } from "@/hooks/useGameStats";
+import { useGameTrajectories } from "@/hooks/useGameTrajectories";
 
 export default function Page() {
-  const { stats, addAttack, toggleMode, resetMatch } = useMatchStats();
-
-  const { trajectories, addTrajectory, resetTrajectories } =
-    useSpikeTrajectories();
+  const { stats, addAttack, toggleMode, resetGame } = useGameStats();
+  const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
 
   return (
     <>
       <Court
         stats={stats}
+        trajectories={trajectories}
         onAttack={addAttack}
         onToggleMode={toggleMode}
         onReset={() => {
-          resetMatch();
+          resetGame();
           resetTrajectories();
         }}
         onSpikeDraw={addTrajectory}
-        spikeTrajectories={trajectories}
       />
 
-      <StatsPanel stats={stats} />
-      <Stats trajectories={trajectories} />
+      {/* <StatsPanel stats={stats} /> */}
+      {/* <Stats trajectories={trajectories.own} /> */}
     </>
   );
 }

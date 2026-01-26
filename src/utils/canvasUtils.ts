@@ -88,3 +88,19 @@ export function getNormalizedPos(e: React.PointerEvent, canvas: HTMLCanvasElemen
     y: (e.clientY - rect.top) / rect.height,
   };
 }
+
+export function drawGhostTrajectories(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  trajectories: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }>
+) {
+  trajectories.forEach((trajectory) => {
+    ctx.strokeStyle = "rgba(255, 45, 45, 0.15)"; // Rojo con 15% opacidad
+    ctx.lineWidth = 1.5; // Grosor reducido
+
+    ctx.beginPath();
+    ctx.moveTo(trajectory.start.x * canvas.width, trajectory.start.y * canvas.height);
+    ctx.lineTo(trajectory.end.x * canvas.width, trajectory.end.y * canvas.height);
+    ctx.stroke();
+  });
+}

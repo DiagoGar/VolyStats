@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Zone } from "@/types/stats";
+import type { SpikeVector } from "@/types/spike";
 import { zoneOrigins } from "./zoneOrigins";
 import {
   drawCourt,
   drawOrigin,
   drawLine,
   drawAverageArrow,
+  drawGhostTrajectories,
   isNearOrigin,
   getNormalizedPos,
 } from "@/utils/canvasUtils";
@@ -25,6 +27,9 @@ interface Props {
 
   // 🔹 NUEVO: ángulo promedio (en radianes)
   averageAngle?: number | null;
+  
+  // 🔹 NUEVO: historial de trayectorias de la zona
+  trajectories?: SpikeVector[];
 }
 
 export function SpikeDraw({
@@ -32,6 +37,7 @@ export function SpikeDraw({
   onClose,
   onSpikeDraw,
   averageAngle,
+  trajectories = [],
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -61,6 +67,10 @@ export function SpikeDraw({
     setCurrentEnd(pos);
 
     drawCourt(ctx, canvas);
+    
+    // 🔹 Dibujar historial fantasma primero (para que no compita visualmente)
+    drawGhostTrajectories(ctx, canvas, trajectories);
+    
     drawOrigin(ctx, canvas, origin);
 
     // 🔹 Flecha promedio
@@ -83,6 +93,10 @@ export function SpikeDraw({
     const ctx = canvas.getContext("2d")!;
 
     drawCourt(ctx, canvas);
+    
+    // 🔹 Dibujar historial fantasma
+    drawGhostTrajectories(ctx, canvas, trajectories);
+    
     drawOrigin(ctx, canvas, origin);
 
     if (averageAngle != null) {
@@ -114,6 +128,10 @@ useEffect(() => {
     console.log("🔄 resize canvas", canvas.width, canvas.height);
 
     drawCourt(ctx, canvas);
+    
+    // 🔹 Dibujar historial fantasma primero
+    drawGhostTrajectories(ctx, canvas, trajectories);
+    
     drawOrigin(ctx, canvas, origin);
 
     if (typeof averageAngle === "number") {
@@ -128,7 +146,7 @@ useEffect(() => {
   window.addEventListener("resize", resize);
 
   return () => window.removeEventListener("resize", resize);
-}, [zone, origin, averageAngle]);
+}, [zone, origin, averageAngle, trajectories]);
 
 
   return (
