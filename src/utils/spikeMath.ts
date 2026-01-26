@@ -9,6 +9,32 @@ export function averageAngle(spikes: SpikeVector[]) {
 }
 
 /**
+ * Calcula la desviación estándar angular (desviación angular)
+ * @param spikes Array de vectores de spike
+ * @param avg Ángulo promedio (se calcula si no se proporciona)
+ * @returns Desviación estándar angular en radianes
+ */
+export function angularDeviation(spikes: SpikeVector[], avg?: number | null): number {
+  if (spikes.length === 0) return 0;
+  if (spikes.length === 1) return 0;
+
+  const average = avg ?? averageAngle(spikes);
+  if (average === null) return 0;
+
+  // Calcular varianza de los ángulos
+  const sumSquaredDiff = spikes.reduce((acc, s) => {
+    // Normalizar la diferencia angular al rango [-π, π]
+    let diff = s.angle - average;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    return acc + diff * diff;
+  }, 0);
+
+  const variance = sumSquaredDiff / spikes.length;
+  return Math.sqrt(variance);
+}
+
+/**
  * Calcula el ángulo a partir de dos puntos (de start a end)
  * @param start Punto de inicio
  * @param end Punto final

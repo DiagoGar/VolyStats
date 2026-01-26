@@ -104,3 +104,89 @@ export function drawGhostTrajectories(
     ctx.stroke();
   });
 }
+
+/**
+ * Dibuja un abanico angular que representa el rango de direcciones de ataque
+ * @param ctx Contexto 2D del canvas
+ * @param canvas Elemento canvas
+ * @param origin Punto de origen del ataque (coordenadas normalizadas 0-1)
+ * @param averageAngle Ángulo promedio en radianes
+ * @param deviation Desviación angular en radianes
+ * @param length Longitud de las flechas (en coordenadas normalizadas)
+ */
+export function drawAngularFan(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  origin: { x: number; y: number },
+  averageAngle: number,
+  deviation: number,
+  length: number = 0.25
+) {
+  const originX = origin.x * canvas.width;
+  const originY = origin.y * canvas.height;
+  const lengthPx = length * Math.min(canvas.width, canvas.height);
+
+  // Ángulos límite
+  const minAngle = averageAngle - deviation;
+  const maxAngle = averageAngle + deviation;
+
+  // Dibujar área semitransparente del abanico
+  if (deviation > 0) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; // Negro con 5% opacidad
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+
+    // Arco desde minAngle hasta maxAngle
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const angle = minAngle + (maxAngle - minAngle) * (i / steps);
+      const endX = originX + Math.cos(angle) * lengthPx;
+      const endY = originY - Math.sin(angle) * lengthPx;
+
+      if (i === 0) {
+        ctx.lineTo(endX, endY);
+      } else {
+        ctx.lineTo(endX, endY);
+      }
+    }
+
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Dibujar flechas límite con grosor delgado
+  const drawArrow = (angle: number, color: string) => {
+    const endX = originX + Math.cos(angle) * lengthPx;
+    const endY = originY - Math.sin(angle) * lengthPx;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]); // Línea punteada
+
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    ctx.setLineDash([]); // Restaurar línea sólida
+  };
+
+  // Flechas límite (ángulo promedio ± desviación)
+  if (deviation > 0) {
+    drawArrow(minAngle, "rgba(0, 0, 0, 0.3)"); // Límite inferior
+    drawArrow(maxAngle, "rgba(0, 0, 0, 0.3)"); // Límite superior
+  }
+
+  // Flecha central (promedio) - más visible
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([]);
+
+  const avgEndX = originX + Math.cos(averageAngle) * lengthPx;
+  const avgEndY = originY - Math.sin(averageAngle) * lengthPx;
+
+  ctx.beginPath();
+  ctx.moveTo(originX, originY);
+  ctx.lineTo(avgEndX, avgEndY);
+  ctx.stroke();
+}

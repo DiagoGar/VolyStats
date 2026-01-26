@@ -1,7 +1,7 @@
 import { ZoneButton } from "./Zone";
 import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
-import { averageAngle } from "@/utils/spikeMath";
+import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState } from "react";
@@ -108,6 +108,7 @@ export function HalfCourt({
           onSpikeDraw={(zone, start, end) => onSpikeDraw(zone, start, end)}
           averageAngle={averageAngle(spikeTrajectories[drawZone])}
           trajectories={spikeTrajectories[drawZone]}
+          angularDeviation={angularDeviation(spikeTrajectories[drawZone])}
         />
       )}
     </div>

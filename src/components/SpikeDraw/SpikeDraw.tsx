@@ -10,6 +10,7 @@ import {
   drawLine,
   drawAverageArrow,
   drawGhostTrajectories,
+  drawAngularFan,
   isNearOrigin,
   getNormalizedPos,
 } from "@/utils/canvasUtils";
@@ -30,6 +31,9 @@ interface Props {
   
   // 🔹 NUEVO: historial de trayectorias de la zona
   trajectories?: SpikeVector[];
+  
+  // 🔹 NUEVO: desviación angular (en radianes)
+  angularDeviation?: number | null;
 }
 
 export function SpikeDraw({
@@ -38,6 +42,7 @@ export function SpikeDraw({
   onSpikeDraw,
   averageAngle,
   trajectories = [],
+  angularDeviation,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -73,9 +78,9 @@ export function SpikeDraw({
     
     drawOrigin(ctx, canvas, origin);
 
-    // 🔹 Flecha promedio
+    // 🔹 Abanico angular
     if (averageAngle != null) {
-      drawAverageArrow(ctx, canvas, origin, averageAngle);
+      drawAngularFan(ctx, canvas, origin, averageAngle, angularDeviation ?? 0);
     }
 
     drawLine(ctx, canvas, origin, pos);
@@ -100,7 +105,7 @@ export function SpikeDraw({
     drawOrigin(ctx, canvas, origin);
 
     if (averageAngle != null) {
-      drawAverageArrow(ctx, canvas, origin, averageAngle);
+      drawAngularFan(ctx, canvas, origin, averageAngle, angularDeviation ?? 0);
     }
   };
 
@@ -120,6 +125,7 @@ useEffect(() => {
   console.log("📌 SpikeDraw useEffect");
   console.log("Zona:", zone);
   console.log("averageAngle recibido:", averageAngle);
+  console.log("angularDeviation recibido:", angularDeviation);
 
   const resize = () => {
     canvas.width = canvas.offsetWidth;
@@ -135,8 +141,8 @@ useEffect(() => {
     drawOrigin(ctx, canvas, origin);
 
     if (typeof averageAngle === "number") {
-      console.log("➡️ dibujando flecha promedio con ángulo:", averageAngle);
-      drawAverageArrow(ctx, canvas, origin, averageAngle);
+      console.log("➡️ dibujando abanico angular con ángulo:", averageAngle);
+      drawAngularFan(ctx, canvas, origin, averageAngle, angularDeviation ?? 0);
     } else {
       console.log("⚠️ averageAngle NO es número:", averageAngle);
     }
@@ -146,7 +152,7 @@ useEffect(() => {
   window.addEventListener("resize", resize);
 
   return () => window.removeEventListener("resize", resize);
-}, [zone, origin, averageAngle, trajectories]);
+}, [zone, origin, averageAngle, angularDeviation, trajectories]);
 
 
   return (
