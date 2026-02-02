@@ -7,8 +7,8 @@ import { useGameStats } from "@/hooks/useGameStats";
 import { useGameTrajectories } from "@/hooks/useGameTrajectories";
 
 export default function Page() {
-  const { stats, addAttack, toggleMode, resetGame } = useGameStats();
   const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
+  const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
 
   return (
     <>
@@ -18,14 +18,14 @@ export default function Page() {
         onAttack={addAttack}
         onToggleMode={toggleMode}
         onReset={() => {
-          resetGame();
+          resetStats();
           resetTrajectories();
         }}
         onSpikeDraw={addTrajectory}
       />
 
       {/* <StatsPanel stats={stats} /> */}
-      {/* <Stats trajectories={trajectories.own} /> */}
+      <Stats trajectories={trajectories.own} />
     </>
   );
 }

@@ -2,7 +2,7 @@ import { HalfCourt } from "./HalfCourt";
 import type { Zone } from "@/types/stats";
 import type { GameStats } from "@/hooks/useGameStats";
 import type { GameTrajectories } from "@/hooks/useGameTrajectories";
-import type { Complex, PlayerRole } from "@/types/spike";
+import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import "./court.css";
 
 interface Props {
@@ -17,7 +17,8 @@ interface Props {
     start: { x: number; y: number },
     end: { x: number; y: number },
     complex: Complex,
-    playerRole?: PlayerRole
+    playerRole?: PlayerRole,
+    evaluation?: Evaluation
   ) => void;
 }
 
@@ -39,7 +40,7 @@ export function Court({
           spikeTrajectories={trajectories.opponent}
           onAttack={(zone) => onAttack("opponent", zone)}
           onToggleMode={() => onToggleMode("opponent")}
-          onSpikeDraw={(zone, start, end, complex, playerRole) => onSpikeDraw("opponent", zone, start, end, complex, playerRole)}
+          onSpikeDraw={(zone, start, end, complex, playerRole, evaluation) => onSpikeDraw("opponent", zone, start, end, complex, playerRole, evaluation)}
         />
 
         {/* Divisor */}
@@ -52,7 +53,7 @@ export function Court({
           spikeTrajectories={trajectories.own}
           onAttack={(zone) => onAttack("own", zone)}
           onToggleMode={() => onToggleMode("own")}
-          onSpikeDraw={(zone, start, end, complex, playerRole) => onSpikeDraw("own", zone, start, end, complex, playerRole)}
+          onSpikeDraw={(zone, start, end, complex, playerRole, evaluation) => onSpikeDraw("own", zone, start, end, complex, playerRole, evaluation)}
         />
       </div>
 

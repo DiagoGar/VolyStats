@@ -1,4 +1,4 @@
-import type { SpikeVector } from "@/types/spike";
+import type { SpikeVector, Complex, PlayerRole, Evaluation } from "@/types/spike";
 import type { Zone } from "@/types/stats";
 
 export function averageAngle(spikes: SpikeVector[]) {
@@ -55,7 +55,10 @@ export function calculateAngle(
 export function createSpikeVector(
   zone: Zone,
   start: { x: number; y: number },
-  end: { x: number; y: number }
+  end: { x: number; y: number },
+  complex?: Complex,
+  playerRole?: PlayerRole,
+  evaluation?: Evaluation
 ): Omit<SpikeVector, 'id'> & { id?: string } {
   const angle = calculateAngle(start, end);
 
@@ -65,5 +68,8 @@ export function createSpikeVector(
     end,
     angle,
     createdAt: Date.now(),
+    complex,
+    playerRole,
+    evaluation,
   };
 }

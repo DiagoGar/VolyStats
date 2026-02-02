@@ -5,7 +5,7 @@ import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState } from "react";
-import type { Complex, PlayerRole } from "@/types/spike";
+import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 
 interface HalfCourtProps {
   team: "own" | "opponent";
@@ -13,7 +13,7 @@ interface HalfCourtProps {
   spikeTrajectories: SpikeTrajectoriesByZone;
   onAttack: (zone: Zone) => void;
   onToggleMode: () => void;
-  onSpikeDraw: (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }, complex: Complex, playerRole?: PlayerRole) => void;
+  onSpikeDraw: (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }, complex: Complex, playerRole?: PlayerRole, evaluation?: Evaluation) => void;
 }
 
 export function HalfCourt({
@@ -24,7 +24,7 @@ export function HalfCourt({
   onToggleMode,
   onSpikeDraw,
 }: HalfCourtProps) {
-  const [drawState, setDrawState] = useState<{ zone: Zone; complex: Complex | null; playerRole: PlayerRole | null } | null>(null);
+  const [drawState, setDrawState] = useState<{ zone: Zone; complex: Complex | null; playerRole: PlayerRole | null; trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null } | null>(null);
 
   const getValue = (zone: Zone) => {
     if (stats.mode === "cantidad") {
@@ -36,7 +36,7 @@ export function HalfCourt({
   };
 
   const handleLongPress = (zone: Zone) => {
-    setDrawState({ zone, complex: null, playerRole: null });
+    setDrawState({ zone, complex: null, playerRole: null, trajectory: null });
   };
 
   const handleAttack = (zone: Zone) => {
@@ -52,6 +52,19 @@ export function HalfCourt({
   const handlePlayerRoleSelect = (playerRole: PlayerRole) => {
     if (drawState) {
       setDrawState({ ...drawState, playerRole });
+    }
+  };
+
+  const handleTrajectoryDrawn = (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }) => {
+    if (drawState) {
+      setDrawState({ ...drawState, trajectory: { start, end } });
+    }
+  };
+
+  const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
+    if (drawState && drawState.trajectory) {
+      onSpikeDraw(drawState.zone, drawState.trajectory.start, drawState.trajectory.end, drawState.complex!, drawState.playerRole || undefined, evaluation);
+      setDrawState(null);
     }
   };
 
@@ -149,17 +162,34 @@ export function HalfCourt({
           </div>
         </div>
       )}
-      {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && (
+      {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && !drawState.trajectory && (
         <SpikeDraw
           zone={drawState.zone}
           complex={drawState.complex}
           playerRole={drawState.playerRole}
           onClose={handleCloseDraw}
-          onSpikeDraw={(zone, start, end) => onSpikeDraw(zone, start, end, drawState.complex!, drawState.playerRole)}
+          onSpikeDraw={handleTrajectoryDrawn}
           averageAngle={averageAngle(spikeTrajectories[drawState.zone])}
           trajectories={spikeTrajectories[drawState.zone]}
           angularDeviation={angularDeviation(spikeTrajectories[drawState.zone])}
         />
+      )}
+      {drawState !== null && drawState.trajectory && (
+        <div className="evaluation-selector-overlay">
+          <div className="evaluation-selector">
+            <h3>Evalúa la Acción (Opcional)</h3>
+            <div className="evaluation-buttons">
+              <button onClick={() => handleEvaluationSelect('#')}># Punto directo</button>
+              <button onClick={() => handleEvaluationSelect('++')}>++ Muy positivo</button>
+              <button onClick={() => handleEvaluationSelect('+')}>+ Positivo</button>
+              <button onClick={() => handleEvaluationSelect('/')}>/ Neutro</button>
+              <button onClick={() => handleEvaluationSelect('-')}>- Negativo</button>
+              <button onClick={() => handleEvaluationSelect('--')}>-- Error directo</button>
+            </div>
+            <button className="skip-btn" onClick={() => handleEvaluationSelect(undefined)}>Omitir</button>
+            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
+          </div>
+        </div>
       )}
     </div>
   );

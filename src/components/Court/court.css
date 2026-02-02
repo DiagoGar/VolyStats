@@ -284,3 +284,52 @@
   background: #ffeaa7;
 }
 
+/* Selector de evaluación */
+.evaluation-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.evaluation-selector {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 300px;
+  width: 90%;
+}
+
+.evaluation-selector h3 {
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.evaluation-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.evaluation-buttons button {
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.evaluation-buttons button:hover {
+  background: #218838;
+}
+
