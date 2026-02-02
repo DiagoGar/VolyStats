@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SpikeVector } from "@/types/spike";
+import type { SpikeVector, Complex, PlayerRole } from "@/types/spike";
 import type { Zone } from "@/types/stats";
 import { createSpikeVector } from "@/utils/spikeMath";
 
@@ -28,7 +28,9 @@ export function useGameTrajectories() {
     team: "own" | "opponent",
     zone: Zone,
     start: { x: number; y: number },
-    end: { x: number; y: number }
+    end: { x: number; y: number },
+    complex: Complex,
+    playerRole?: PlayerRole
   ) => {
     const spikeData = createSpikeVector(zone, start, end);
 
@@ -41,6 +43,8 @@ export function useGameTrajectories() {
           {
             id: crypto.randomUUID(),
             ...spikeData,
+            complex,
+            playerRole,
           },
         ],
       },

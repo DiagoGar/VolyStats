@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Zone } from "@/types/stats";
-import type { SpikeVector } from "@/types/spike";
+import type { SpikeVector, Complex, PlayerRole } from "@/types/spike";
 import { zoneOrigins } from "./zoneOrigins";
 import {
   drawCourt,
@@ -18,6 +18,8 @@ import "./spikeDraw.css";
 
 interface Props {
   zone: Zone;
+  complex: Complex;
+  playerRole?: PlayerRole;
   onClose: () => void;
 
   onSpikeDraw: (
@@ -38,6 +40,8 @@ interface Props {
 
 export function SpikeDraw({
   zone,
+  complex,
+  playerRole,
   onClose,
   onSpikeDraw,
   averageAngle,
@@ -158,6 +162,12 @@ useEffect(() => {
   return (
     <div className="spike-draw-overlay">
       <div className="spike-draw-container">
+        <div className="spike-draw-header">
+          <span>Zona {zone} - {complex}{playerRole ? ` - ${playerRole}` : ''}</span>
+          <button className="close-btn" onClick={onClose}>
+            ✕
+          </button>
+        </div>
         <canvas
           ref={canvasRef}
           className="spike-canvas"
@@ -166,10 +176,6 @@ useEffect(() => {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         />
-
-        <button className="close-btn" onClick={onClose}>
-          ✕
-        </button>
       </div>
     </div>
   );

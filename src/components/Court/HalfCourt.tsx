@@ -5,6 +5,7 @@ import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState } from "react";
+import type { Complex, PlayerRole } from "@/types/spike";
 
 interface HalfCourtProps {
   team: "own" | "opponent";
@@ -12,7 +13,7 @@ interface HalfCourtProps {
   spikeTrajectories: SpikeTrajectoriesByZone;
   onAttack: (zone: Zone) => void;
   onToggleMode: () => void;
-  onSpikeDraw: (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }) => void;
+  onSpikeDraw: (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }, complex: Complex, playerRole?: PlayerRole) => void;
 }
 
 export function HalfCourt({
@@ -23,7 +24,7 @@ export function HalfCourt({
   onToggleMode,
   onSpikeDraw,
 }: HalfCourtProps) {
-  const [drawZone, setDrawZone] = useState<Zone | null>(null);
+  const [drawState, setDrawState] = useState<{ zone: Zone; complex: Complex | null; playerRole: PlayerRole | null } | null>(null);
 
   const getValue = (zone: Zone) => {
     if (stats.mode === "cantidad") {
@@ -35,11 +36,27 @@ export function HalfCourt({
   };
 
   const handleLongPress = (zone: Zone) => {
-    setDrawZone(zone);
+    setDrawState({ zone, complex: null, playerRole: null });
   };
 
   const handleAttack = (zone: Zone) => {
     onAttack(zone);
+  };
+
+  const handleComplexSelect = (complex: Complex) => {
+    if (drawState) {
+      setDrawState({ ...drawState, complex, playerRole: null });
+    }
+  };
+
+  const handlePlayerRoleSelect = (playerRole: PlayerRole) => {
+    if (drawState) {
+      setDrawState({ ...drawState, playerRole });
+    }
+  };
+
+  const handleCloseDraw = () => {
+    setDrawState(null);
   };
 
   const isOpponent = team === "opponent";
@@ -101,14 +118,47 @@ export function HalfCourt({
       </div>
 
       {/* Modal de dibujo */}
-      {drawZone !== null && (
+      {drawState !== null && drawState.complex === null && (
+        <div className="complex-selector-overlay">
+          <div className="complex-selector">
+            <h3>Selecciona el Complejo de Juego</h3>
+            <div className="complex-buttons">
+              <button onClick={() => handleComplexSelect('K1')}>K1 - Side-out</button>
+              <button onClick={() => handleComplexSelect('K2')}>K2 - Break-point</button>
+              <button onClick={() => handleComplexSelect('K3')}>K3 - Contraataque</button>
+              <button onClick={() => handleComplexSelect('K4')}>K4 - Freeball</button>
+            </div>
+            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      {drawState !== null && drawState.complex !== null && drawState.playerRole === null && (
+        <div className="role-selector-overlay">
+          <div className="role-selector">
+            <h3>Selecciona el Rol del Jugador</h3>
+            <div className="role-buttons">
+              <button onClick={() => handlePlayerRoleSelect('opuesto')}>Opuesto</button>
+              <button onClick={() => handlePlayerRoleSelect('punta')}>Punta</button>
+              <button onClick={() => handlePlayerRoleSelect('central')}>Central</button>
+              <button onClick={() => handlePlayerRoleSelect('armador')}>Armador</button>
+              <button onClick={() => handlePlayerRoleSelect('libero')}>Líbero</button>
+              <button onClick={() => handlePlayerRoleSelect('zaguero')}>Zaguero</button>
+            </div>
+            <button className="skip-btn" onClick={() => handlePlayerRoleSelect(undefined as any)}>Omitir</button>
+            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && (
         <SpikeDraw
-          zone={drawZone}
-          onClose={() => setDrawZone(null)}
-          onSpikeDraw={(zone, start, end) => onSpikeDraw(zone, start, end)}
-          averageAngle={averageAngle(spikeTrajectories[drawZone])}
-          trajectories={spikeTrajectories[drawZone]}
-          angularDeviation={angularDeviation(spikeTrajectories[drawZone])}
+          zone={drawState.zone}
+          complex={drawState.complex}
+          playerRole={drawState.playerRole}
+          onClose={handleCloseDraw}
+          onSpikeDraw={(zone, start, end) => onSpikeDraw(zone, start, end, drawState.complex!, drawState.playerRole)}
+          averageAngle={averageAngle(spikeTrajectories[drawState.zone])}
+          trajectories={spikeTrajectories[drawState.zone]}
+          angularDeviation={angularDeviation(spikeTrajectories[drawState.zone])}
         />
       )}
     </div>
