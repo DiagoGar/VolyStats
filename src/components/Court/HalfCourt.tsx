@@ -4,8 +4,9 @@ import { calculatePercentage } from "@/utils/calculations";
 import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
+import { drawPersistentTrajectories } from "@/utils/canvasUtils";
 
 interface HalfCourtProps {
   team: "own" | "opponent";
@@ -25,6 +26,25 @@ export function HalfCourt({
   onSpikeDraw,
 }: HalfCourtProps) {
   const [drawState, setDrawState] = useState<{ zone: Zone; complex: Complex | null; playerRole: PlayerRole | null; trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null } | null>(null);
+  const [filterComplex, setFilterComplex] = useState<Complex | null>(null);
+  const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
+  const [showTrajectories, setShowTrajectories] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Limpiar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (showTrajectories) {
+      drawPersistentTrajectories(ctx, canvas, spikeTrajectories, filterComplex, filterEvaluation);
+    }
+  }, [spikeTrajectories, filterComplex, filterEvaluation, showTrajectories]);
 
   const getValue = (zone: Zone) => {
     if (stats.mode === "cantidad") {
@@ -128,6 +148,51 @@ export function HalfCourt({
           onClick={handleAttack}
           onLongPress={handleLongPress}
         />
+      </div>
+
+      {/* Canvas para trayectorias */}
+      <canvas
+        ref={canvasRef}
+        className="trajectory-canvas"
+        width={400}
+        height={300}
+      />
+
+      {/* Controles de filtros */}
+      <div className="trajectory-controls">
+        <button 
+          className={`control-btn ${showTrajectories ? 'active' : ''}`}
+          onClick={() => setShowTrajectories(!showTrajectories)}
+        >
+          {showTrajectories ? 'Ocultar' : 'Mostrar'} Trayectorias
+        </button>
+        
+        <div className="filter-group">
+          <label>Complejo:</label>
+          <select 
+            value={filterComplex || ''} 
+            onChange={(e) => setFilterComplex(e.target.value as Complex || null)}
+          >
+            <option value="">Todos</option>
+            <option value="K1">K1</option>
+            <option value="K2">K2</option>
+            <option value="K3">K3</option>
+            <option value="K4">K4</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Evaluación:</label>
+          <select 
+            value={filterEvaluation || ''} 
+            onChange={(e) => setFilterEvaluation(e.target.value as Evaluation || null)}
+          >
+            <option value="">Todas</option>
+            <option value="ace">Ace</option>
+            <option value="kill">Kill</option>
+            <option value="error">Error</option>
+          </select>
+        </div>
       </div>
 
       {/* Modal de dibujo */}

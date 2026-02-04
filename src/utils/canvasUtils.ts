@@ -190,3 +190,38 @@ export function drawAngularFan(
   ctx.lineTo(avgEndX, avgEndY);
   ctx.stroke();
 }
+
+export function drawPersistentTrajectories(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  trajectories: Record<number, { start: { x: number; y: number }; end: { x: number; y: number }; complex?: string; evaluation?: string }[]>,
+  filterComplex: string | null,
+  filterEvaluation: string | null
+) {
+  // Dibujar todas las trayectorias con filtros
+  Object.values(trajectories).forEach(zoneTrajectories => {
+    zoneTrajectories.forEach(trajectory => {
+      // Aplicar filtros
+      if (filterComplex && trajectory.complex !== filterComplex) return;
+      if (filterEvaluation && trajectory.evaluation !== filterEvaluation) return;
+
+      // Determinar color basado en evaluación
+      let color = "#666"; // Default gris
+      if (trajectory.evaluation === "ace") color = "#28a745"; // Verde
+      else if (trajectory.evaluation === "kill") color = "#007bff"; // Azul
+      else if (trajectory.evaluation === "error") color = "#dc3545"; // Rojo
+
+      // Dibujar línea
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.7;
+
+      ctx.beginPath();
+      ctx.moveTo(trajectory.start.x * canvas.width, trajectory.start.y * canvas.height);
+      ctx.lineTo(trajectory.end.x * canvas.width, trajectory.end.y * canvas.height);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+    });
+  });
+}

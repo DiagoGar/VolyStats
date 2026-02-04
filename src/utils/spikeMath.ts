@@ -73,3 +73,27 @@ export function createSpikeVector(
     evaluation,
   };
 }
+
+export const directionPatterns = {
+  line: "Línea",
+  diagonal: "Diagonal",
+  cross: "Cruzada",
+  cut: "Corte",
+  tip: "Toque",
+};
+
+export function classifyDirection(trajectory: { start: { x: number; y: number }; end: { x: number; y: number } }): string {
+  const angle = calculateAngle(trajectory.start, trajectory.end);
+  const degrees = (angle * 180) / Math.PI;
+
+  // Normalizar a 0-360
+  const normalized = ((degrees % 360) + 360) % 360;
+
+  // Clasificar basado en ángulos
+  if (normalized >= 315 || normalized < 45) return directionPatterns.line; // Arriba
+  if (normalized >= 45 && normalized < 135) return directionPatterns.diagonal; // Derecha-arriba
+  if (normalized >= 135 && normalized < 225) return directionPatterns.cross; // Izquierda
+  if (normalized >= 225 && normalized < 315) return directionPatterns.cut; // Izquierda-abajo
+
+  return directionPatterns.tip; // Default
+}
