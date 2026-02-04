@@ -188,9 +188,12 @@ export function HalfCourt({
             onChange={(e) => setFilterEvaluation(e.target.value as Evaluation || null)}
           >
             <option value="">Todas</option>
-            <option value="ace">Ace</option>
-            <option value="kill">Kill</option>
-            <option value="error">Error</option>
+            <option value="#"># Punto directo</option>
+            <option value="++">++ Muy positivo</option>
+            <option value="+">+ Positivo</option>
+            <option value="/">/ Neutro</option>
+            <option value="-">- Negativo</option>
+            <option value="--">-- Error directo</option>
           </select>
         </div>
       </div>

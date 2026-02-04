@@ -207,9 +207,9 @@ export function drawPersistentTrajectories(
 
       // Determinar color basado en evaluación
       let color = "#666"; // Default gris
-      if (trajectory.evaluation === "ace") color = "#28a745"; // Verde
-      else if (trajectory.evaluation === "kill") color = "#007bff"; // Azul
-      else if (trajectory.evaluation === "error") color = "#dc3545"; // Rojo
+      if (trajectory.evaluation === "#") color = "#28a745"; // Verde para punto directo
+      else if (trajectory.evaluation === "++") color = "#007bff"; // Azul para muy positivo
+      else if (trajectory.evaluation === "--") color = "#dc3545"; // Rojo para error directo
 
       // Dibujar línea
       ctx.strokeStyle = color;
