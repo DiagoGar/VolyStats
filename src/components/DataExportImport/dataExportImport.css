@@ -1,0 +1,98 @@
+.data-export-import {
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.data-export-import h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.data-export-import h3 {
+  margin-top: 16px;
+  color: #555;
+  font-size: 1rem;
+}
+
+.export-section,
+.import-section,
+.danger-section {
+  margin: 12px 0;
+}
+
+.export-btn,
+.import-label > button {
+  padding: 8px 16px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: 4px;
+  background: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.export-btn:hover {
+  background: #0056b3;
+}
+
+.export-btn.primary {
+  background: #28a745;
+}
+
+.export-btn.primary:hover {
+  background: #1e7e34;
+}
+
+.import-label {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #17a2b8;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.import-label:hover {
+  background: #117a8b;
+}
+
+.import-input {
+  display: none;
+}
+
+.import-message {
+  margin-top: 8px;
+  padding: 8px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.danger-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ddd;
+}
+
+.danger-btn {
+  padding: 8px 16px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.danger-btn:hover {
+  background: #c82333;
+}

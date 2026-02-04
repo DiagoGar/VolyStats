@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Zone, MatchStats, Mode } from "@/types/stats";
 import type { SpikeTrajectoriesByZone } from "./useGameTrajectories";
+import { usePersistentStorage, loadFromStorage, storageKeys } from "./usePersistentStorage";
 
 const initialTeamStats: MatchStats = {
   zones: {
@@ -31,10 +32,16 @@ function calculateStatsFromTrajectories(trajectories: SpikeTrajectoriesByZone): 
 }
 
 export function useGameStats(ownTrajectories: SpikeTrajectoriesByZone, opponentTrajectories: SpikeTrajectoriesByZone) {
-  const [manualStats, setManualStats] = useState<GameStats>({
-    own: initialTeamStats,
-    opponent: initialTeamStats,
+  const [manualStats, setManualStats] = useState<GameStats>(() => {
+    // Cargar del localStorage al inicializar
+    return loadFromStorage<GameStats>(storageKeys.stats, {
+      own: initialTeamStats,
+      opponent: initialTeamStats,
+    });
   });
+
+  // Persitir cambios automáticamente
+  usePersistentStorage(storageKeys.stats, manualStats);
 
   const stats: GameStats = {
     own: {

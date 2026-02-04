@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { SpikeVector, Complex, PlayerRole, Evaluation } from "@/types/spike";
 import type { Zone } from "@/types/stats";
 import { createSpikeVector } from "@/utils/spikeMath";
+import { usePersistentStorage, loadFromStorage, storageKeys } from "./usePersistentStorage";
 
 export type SpikeTrajectoriesByZone = Record<Zone, SpikeVector[]>;
 
@@ -19,10 +20,16 @@ const emptyTrajectories: SpikeTrajectoriesByZone = {
 };
 
 export function useGameTrajectories() {
-  const [trajectories, setTrajectories] = useState<GameTrajectories>({
-    own: emptyTrajectories,
-    opponent: emptyTrajectories,
+  const [trajectories, setTrajectories] = useState<GameTrajectories>(() => {
+    // Cargar del localStorage al inicializar
+    return loadFromStorage<GameTrajectories>(storageKeys.trajectories, {
+      own: emptyTrajectories,
+      opponent: emptyTrajectories,
+    });
   });
+
+  // Persitir cambios automáticamente
+  usePersistentStorage(storageKeys.trajectories, trajectories);
 
   const addTrajectory = (
     team: "own" | "opponent",
