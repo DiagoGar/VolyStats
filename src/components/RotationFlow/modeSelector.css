@@ -1,0 +1,111 @@
+.mode-selector-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.mode-selector-container h1 {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  margin-bottom: 40px;
+  opacity: 0.9;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 280px;
+  padding: 30px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  color: white;
+  text-align: center;
+}
+
+.mode-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.mode-btn:active {
+  transform: translateY(-2px);
+}
+
+.attack-mode {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.rotation-mode {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.mode-btn .icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.mode-btn .label {
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.mode-btn .description {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  display: block;
+}
+
+.info-section {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px 30px;
+  border-radius: 8px;
+  max-width: 600px;
+  backdrop-filter: blur(10px);
+}
+
+.info-section h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.info-section p {
+  margin: 0 0 15px 0;
+  opacity: 0.95;
+}
+
+.info-section ul {
+  margin: 0;
+  padding-left: 20px;
+  opacity: 0.9;
+}
+
+.info-section li {
+  margin: 5px 0;
+}
