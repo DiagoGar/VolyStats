@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import type { Team, Player } from "@/types/rotation";
+import type { Team, Player } from "@/types/volley-model";
 import { loadFromStorage, usePersistentStorage, storageKeys as baseStorageKeys } from "./usePersistentStorage";
 
 const TEAMS_STORAGE_KEY = "voley-stats:teams";

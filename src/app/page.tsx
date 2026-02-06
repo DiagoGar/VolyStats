@@ -5,14 +5,18 @@ import { Court } from "@/components/Court/Court";
 import { Stats } from "@/components/Stats/Stats";
 import { DataExportImport } from "@/components/DataExportImport/DataExportImport";
 import { ModeSelector } from "@/components/RotationFlow/ModeSelector";
+import { MatchSetupFlow } from "@/components/RotationFlow/MatchSetupFlow";
 import { useGameStats } from "@/hooks/useGameStats";
 import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTrajectories";
 import { clearStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/modeSelector.css";
+import "@/components/RotationFlow/matchSetup.css";
+import type { Match } from "@/types/volley-model";
 
 export default function Page() {
   const [mode, setMode] = useState<"attack" | "rotation" | null>(null);
+  const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
   const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
 
@@ -29,6 +33,14 @@ export default function Page() {
 
   const handleImportStats = (data: any) => {
     // Lógica para importar stats
+  };
+
+  const handleMatchConfirmed = (match: Match) => {
+    setCurrentMatch(match);
+  };
+
+  const handleBackToSetup = () => {
+    setCurrentMatch(null);
   };
 
   // Si no hay modo seleccionado, mostrar selector
@@ -81,7 +93,7 @@ export default function Page() {
     );
   }
 
-  // Modo de Rotaciones (próximas fases)
+  // Modo de Rotaciones (PHASE 1b: Match Setup Flow)
   if (mode === "rotation") {
     return (
       <>
@@ -101,11 +113,36 @@ export default function Page() {
           </button>
         </div>
         
-        <div style={{ padding: "20px", textAlign: "center" }}>
+        <div style={{ padding: "20px" }}>
           <h2>🔄 Sistema de Rotaciones</h2>
-          <p style={{ color: "#666" }}>
-            Próximamente en FASES 1-6...
-          </p>
+          
+          {!currentMatch ? (
+            <MatchSetupFlow 
+              onMatchReady={handleMatchConfirmed}
+              onCancel={() => setMode(null)}
+            />
+          ) : (
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <button
+                onClick={handleBackToSetup}
+                style={{
+                  padding: "8px 16px",
+                  marginBottom: "16px",
+                  backgroundColor: "#666",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                ← Volver a Seleccionar Equipos
+              </button>
+              <h3>Partido: {currentMatch.homeTeam.name} vs {currentMatch.awayTeam.name}</h3>
+              <p style={{ color: "#666" }}>
+                Próximamente: Configuración de rotación en FASES 2-6...
+              </p>
+            </div>
+          )}
         </div>
       </>
     );
