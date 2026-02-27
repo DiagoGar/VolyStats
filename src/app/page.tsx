@@ -13,8 +13,9 @@ import { clearStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/modeSelector.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player } from "@/types/volley-model";
+import type { Match, Player, CourtPosition } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
+import { RoleAssignmentFlow } from "@/components/RotationFlow/RoleAssignmentFlow";
 
 export default function Page() {
   const [mode, setMode] = useState<"attack" | "rotation" | null>(null);
@@ -23,6 +24,10 @@ export default function Page() {
     homeTeamSetter: Player;
     awayTeamSetter: Player;
     rotationType: RotationType;
+  } | null>(null);
+  const [roleAssignments, setRoleAssignments] = useState<{
+    homeTeamAssignments: Record<CourtPosition, Player>;
+    awayTeamAssignments: Record<CourtPosition, Player>;
   } | null>(null);
   const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
@@ -35,11 +40,13 @@ export default function Page() {
   };
 
   const handleImportTrajectories = (data: GameTrajectories) => {
-    // Lógica para importar trayectorias
+    // TODO: PHASE 4+ Implementar importación de trayectorias desde JSON
+    // Por ahora es un placeholder para validar la estructura del componente
   };
 
   const handleImportStats = (data: any) => {
-    // Lógica para importar stats
+    // TODO: PHASE 4+ Implementar importación de stats desde JSON
+    // Por ahora es un placeholder para validar la estructura del componente
   };
 
   const handleMatchConfirmed = (match: Match) => {
@@ -61,6 +68,17 @@ export default function Page() {
 
   const handleBackToMatchSetup = () => {
     setRotationConfig(null);
+  };
+
+  const handleRoleAssignmentComplete = (config: {
+    homeTeamAssignments: Record<CourtPosition, Player>;
+    awayTeamAssignments: Record<CourtPosition, Player>;
+  }) => {
+    setRoleAssignments(config);
+  };
+
+  const handleBackToRotationConfig = () => {
+    setRoleAssignments(null);
   };
 
   // Si no hay modo seleccionado, mostrar selector
@@ -147,6 +165,15 @@ export default function Page() {
               onConfigComplete={handleRotationConfigComplete}
               onBack={handleBackToMatchSetup}
             />
+          ) : !roleAssignments ? (
+            <RoleAssignmentFlow
+              match={currentMatch}
+              homeTeamSetter={rotationConfig.homeTeamSetter}
+              awayTeamSetter={rotationConfig.awayTeamSetter}
+              rotationType={rotationConfig.rotationType}
+              onAssignmentComplete={handleRoleAssignmentComplete}
+              onBack={handleBackToRotationConfig}
+            />
           ) : (
             <div style={{ padding: "20px", textAlign: "center" }}>
               <button
@@ -168,6 +195,14 @@ export default function Page() {
                 <p><strong>Armador Local:</strong> #{rotationConfig.homeTeamSetter.number} {rotationConfig.homeTeamSetter.name}</p>
                 <p><strong>Armador Visitante:</strong> #{rotationConfig.awayTeamSetter.number} {rotationConfig.awayTeamSetter.name}</p>
                 <p><strong>Sistema:</strong> {rotationConfig.rotationType}</p>
+                <p style={{ marginTop: "15px", color: "#28a745" }}>
+                  <strong>✓ Posiciones asignadas:</strong><br />
+                  {Object.entries(roleAssignments.homeTeamAssignments)
+                    .slice(0, 3)
+                    .map(([pos, player]) => `Pos${pos}: #${player.number}`)
+                    .join(", ")}
+                  ...
+                </p>
               </div>
               <p style={{ color: "#666", marginTop: "20px" }}>
                 Próximamente: Asignación de roles y posiciones en FASES 3-6...

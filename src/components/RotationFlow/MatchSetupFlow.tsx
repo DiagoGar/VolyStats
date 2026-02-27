@@ -1,16 +1,18 @@
 // components/RotationFlow/MatchSetupFlow.tsx
 /**
- * Flujo principal de creación de partido
- * Orquesta: Seleccionar equipos → Crear jugadores → Confirmar
+ * PHASE 1b - Flujo de Configuración de Partido
+ * 
+ * Orquesta el proceso de crear/seleccionar un partido:
+ * Paso 1: Seleccionar o crear Equipo Local
+ * Paso 2: Seleccionar o crear Equipo Visitante
+ * Paso 3: Confirmar partido
  */
 
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TeamSelector } from "./TeamSelector";
 import { TeamEditor } from "./TeamEditor";
-import { useTeamManagement } from "@/hooks/useTeamManagement";
-import { useMatchSetup } from "@/hooks/useMatchSetup";
 import type { Team, Match } from "@/types/volley-model";
 
 interface MatchSetupFlowProps {
@@ -18,148 +20,402 @@ interface MatchSetupFlowProps {
   onCancel: () => void;
 }
 
-export function MatchSetupFlow({ onMatchReady, onCancel }: MatchSetupFlowProps) {
-  const { teams, addTeam } = useTeamManagement();
-  const {
-    step,
-    selectedHomeTeam,
-    selectedAwayTeam,
-    editingTeam,
-    selectTeam,
-    startCreatingTeam,
-    updateEditingTeam,
-    confirmMatchSetup,
-    goBack,
-  } = useMatchSetup();
+type MatchSetupStep = "selectHome" | "selectAway" | "confirm" | "editingTeam";
 
-  const [creatingTeamSide, setCreatingTeamSide] = useState<"home" | "away" | null>(null);
+export function MatchSetupFlow({
+  onMatchReady,
+  onCancel,
+}: MatchSetupFlowProps) {
+  const [currentStep, setCurrentStep] = useState<MatchSetupStep>("selectHome");
+  const [homeTeam, setHomeTeam] = useState<Team | null>(null);
+  const [awayTeam, setAwayTeam] = useState<Team | null>(null);
+  const [editingSide, setEditingSide] = useState<"home" | "away" | null>(null);
+  const [editingTeamData, setEditingTeamData] = useState<Team | null>(null);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+
+  // Cargar equipos disponibles desde storage
+  const loadTeams = () => {
+    try {
+      const stored = localStorage.getItem("voley-stats:teams");
+      if (stored) {
+        const teams = JSON.parse(stored);
+        setAllTeams(teams);
+      }
+    } catch (err) {
+      console.error("Error loading teams:", err);
+    }
+  };
+
+  const handleSelectTeam = (teamId: string, side: "home" | "away") => {
+    const team = allTeams.find((t) => t.id === teamId);
+    if (!team) return;
+
+    if (side === "home") {
+      setHomeTeam(team);
+      if (awayTeam) {
+        setCurrentStep("confirm");
+      } else {
+        setCurrentStep("selectAway");
+      }
+    } else {
+      setAwayTeam(team);
+      if (homeTeam) {
+        setCurrentStep("confirm");
+      } else {
+        setCurrentStep("selectHome");
+      }
+    }
+  };
+
+  const handleCreateNewTeam = (side: "home" | "away") => {
+    setEditingSide(side);
+    setEditingTeamData({
+      id: crypto.randomUUID(),
+      name: "",
+      players: [],
+      createdAt: Date.now(),
+    });
+    setCurrentStep("editingTeam");
+  };
 
   const handleSaveTeam = (team: Team) => {
-    addTeam(team);
+    // Guardar equipo en storage
+    const teams = allTeams.concat(team);
+    localStorage.setItem("voley-stats:teams", JSON.stringify(teams));
+    setAllTeams(teams);
 
-    if (creatingTeamSide === "home") {
-      selectTeam(team.id, "home");
-    } else if (creatingTeamSide === "away") {
-      selectTeam(team.id, "away");
+    // Asignar a partido según lado
+    if (editingSide === "home") {
+      setHomeTeam(team);
+      if (awayTeam) {
+        setCurrentStep("confirm");
+      } else {
+        setCurrentStep("selectAway");
+      }
+    } else if (editingSide === "away") {
+      setAwayTeam(team);
+      if (homeTeam) {
+        setCurrentStep("confirm");
+      } else {
+        setCurrentStep("selectHome");
+      }
+    }
+    setEditingSide(null);
+    setEditingTeamData(null);
+  };
+
+  const handleConfirmMatch = () => {
+    if (!homeTeam || !awayTeam) {
+      alert("Debes seleccionar ambos equipos");
+      return;
     }
 
-    setCreatingTeamSide(null);
+    if (homeTeam.players.length < 6) {
+      alert("El equipo local necesita al menos 6 jugadores");
+      return;
+    }
+
+    if (awayTeam.players.length < 6) {
+      alert("El equipo visitante necesita al menos 6 jugadores");
+      return;
+    }
+
+    // Crear partido
+    const match: Match = {
+      id: crypto.randomUUID(),
+      homeTeam,
+      awayTeam,
+      actions: [],
+      homeRotations: [],
+      awayRotations: [],
+      currentHomeRotation: null as any, // Se asignará en siguiente fase
+      currentAwayRotation: null as any,
+      homeScore: 0,
+      awayScore: 0,
+      currentSet: 1,
+      status: "setup",
+      createdAt: Date.now(),
+    };
+
+    onMatchReady(match);
   };
 
-  const handleCreateTeam = (side: "home" | "away") => {
-    setCreatingTeamSide(side);
-    startCreatingTeam(side);
-  };
-
-  const handleConfirm = () => {
-    try {
-      const match = confirmMatchSetup();
-      onMatchReady(match);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error desconocido");
+  const handleBack = () => {
+    if (currentStep === "editingTeam") {
+      setCurrentStep(editingSide === "home" ? "selectHome" : "selectAway");
+      setEditingSide(null);
+      setEditingTeamData(null);
+    } else if (currentStep === "selectAway") {
+      setCurrentStep("selectHome");
+      setAwayTeam(null);
+    } else if (currentStep === "confirm") {
+      setCurrentStep("selectAway");
+    } else {
+      onCancel();
     }
   };
 
-  // Paso 1: Seleccionar equipos
-  if (step === "selectTeams") {
-    return (
-      <div className="match-setup-flow">
-        <h2>Crear Nuevo Partido</h2>
+  // Cargar equipos al montar componente
+  useEffect(() => {
+    loadTeams();
+  }, []);
 
-        <div className="teams-grid">
-          <TeamSelector
-            teams={teams}
-            selectedTeam={selectedHomeTeam}
-            side="home"
-            onSelectTeam={(id) => selectTeam(id, "home")}
-            onCreateNew={() => handleCreateTeam("home")}
-          />
+  return (
+    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+      <h2>🏐 Configurar Partido</h2>
 
-          <div className="divider">VS</div>
-
-          <TeamSelector
-            teams={teams}
-            selectedTeam={selectedAwayTeam}
-            side="away"
-            onSelectTeam={(id) => selectTeam(id, "away")}
-            onCreateNew={() => handleCreateTeam("away")}
+      {currentStep === "editingTeam" && editingTeamData && (
+        <div>
+          <TeamEditor
+            team={editingTeamData}
+            onSaveTeam={handleSaveTeam}
+            onCancel={handleBack}
+            isCreatingNew={true}
           />
         </div>
+      )}
 
-        <div className="actions">
-          <button className="back-btn" onClick={onCancel}>
-            ← Volver
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Paso 2: Configurar equipo
-  if (step === "configTeams") {
-    return (
-      <div className="match-setup-flow">
-        <TeamEditor
-          team={editingTeam}
-          onSaveTeam={handleSaveTeam}
-          onCancel={goBack}
-          isCreatingNew={!editingTeam?.id}
-        />
-      </div>
-    );
-  }
-
-  // Paso 3: Confirmar
-  if (step === "confirm") {
-    return (
-      <div className="match-setup-flow">
-        <h2>Confirmar Partido</h2>
-
-        <div className="match-preview">
-          <div className="team-card">
-            <h3>{selectedHomeTeam?.name}</h3>
-            <div className="team-stats">
-              <p>👥 {selectedHomeTeam?.players.length} jugadores</p>
-              <p>🎯 {selectedHomeTeam?.color && `Color: ${selectedHomeTeam.color}`}</p>
+      {currentStep === "selectHome" && (
+        <div>
+          <h3>Paso 1/3: Equipo Local</h3>
+          {homeTeam && (
+            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", borderRadius: "4px" }}>
+              <p><strong>Seleccionado:</strong> {homeTeam.name} ({homeTeam.players.length} jugadores)</p>
+              <button
+                onClick={() => setHomeTeam(null)}
+                style={{
+                  padding: "8px 12px",
+                  background: "#e74c3c",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                Cambiar
+              </button>
             </div>
-            <div className="players-preview">
-              {selectedHomeTeam?.players.slice(0, 6).map((p) => (
-                <div key={p.id} className="player-mini">
-                  #{p.number}
-                </div>
-              ))}
+          )}
+          {!homeTeam && (
+            <div>
+              <div style={{ marginBottom: "15px" }}>
+                <h4>Equipos disponibles:</h4>
+                {allTeams.length === 0 ? (
+                  <p style={{ color: "#999" }}>No hay equipos creados aún</p>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+                    {allTeams.map((team) => (
+                      <button
+                        key={team.id}
+                        onClick={() => handleSelectTeam(team.id, "home")}
+                        style={{
+                          padding: "12px",
+                          background: "#f9f9f9",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <strong>{team.name}</strong> ({team.players.length} jugadores)
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => handleCreateNewTeam("home")}
+                style={{
+                  padding: "10px 16px",
+                  background: "#27ae60",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                + Crear nuevo equipo
+              </button>
+            </div>
+          )}
+          {homeTeam && (
+            <button
+              onClick={() => setCurrentStep("selectAway")}
+              style={{
+                marginTop: "20px",
+                padding: "10px 16px",
+                background: "#3498db",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Siguiente →
+            </button>
+          )}
+        </div>
+      )}
+
+      {currentStep === "selectAway" && (
+        <div>
+          <h3>Paso 2/3: Equipo Visitante</h3>
+          <p style={{ background: "#e8f5e9", padding: "10px", borderRadius: "4px", marginBottom: "15px" }}>
+            Local: <strong>{homeTeam?.name}</strong>
+          </p>
+          {awayTeam && (
+            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", borderRadius: "4px" }}>
+              <p><strong>Seleccionado:</strong> {awayTeam.name} ({awayTeam.players.length} jugadores)</p>
+              <button
+                onClick={() => setAwayTeam(null)}
+                style={{
+                  padding: "8px 12px",
+                  background: "#e74c3c",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              >
+                Cambiar
+              </button>
+            </div>
+          )}
+          {!awayTeam && (
+            <div>
+              <div style={{ marginBottom: "15px" }}>
+                <h4>Equipos disponibles:</h4>
+                {allTeams.length === 0 ? (
+                  <p style={{ color: "#999" }}>No hay equipos creados aún</p>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+                    {allTeams
+                      .filter((t) => t.id !== homeTeam?.id)
+                      .map((team) => (
+                        <button
+                          key={team.id}
+                          onClick={() => handleSelectTeam(team.id, "away")}
+                          style={{
+                            padding: "12px",
+                            background: "#f9f9f9",
+                            border: "1px solid #ddd",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            textAlign: "left",
+                          }}
+                        >
+                          <strong>{team.name}</strong> ({team.players.length} jugadores)
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => handleCreateNewTeam("away")}
+                style={{
+                  padding: "10px 16px",
+                  background: "#27ae60",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                + Crear nuevo equipo
+              </button>
+            </div>
+          )}
+          {awayTeam && (
+            <button
+              onClick={() => setCurrentStep("confirm")}
+              style={{
+                marginTop: "20px",
+                padding: "10px 16px",
+                background: "#3498db",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              Siguiente →
+            </button>
+          )}
+        </div>
+      )}
+
+      {currentStep === "confirm" && homeTeam && awayTeam && (
+        <div>
+          <h3>Paso 3/3: Confirmar Partido</h3>
+          <div style={{ 
+            background: "#f9f9f9", 
+            padding: "20px", 
+            borderRadius: "8px",
+            marginBottom: "20px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ textAlign: "center", flex: 1 }}>
+                <h4>{homeTeam.name}</h4>
+                <p style={{ color: "#999", fontSize: "12px" }}>{homeTeam.players.length} jugadores</p>
+              </div>
+              <div style={{ fontSize: "20px", padding: "0 20px", color: "#999" }}>vs</div>
+              <div style={{ textAlign: "center", flex: 1 }}>
+                <h4>{awayTeam.name}</h4>
+                <p style={{ color: "#999", fontSize: "12px" }}>{awayTeam.players.length} jugadores</p>
+              </div>
             </div>
           </div>
-
-          <div className="vs">VS</div>
-
-          <div className="team-card">
-            <h3>{selectedAwayTeam?.name}</h3>
-            <div className="team-stats">
-              <p>👥 {selectedAwayTeam?.players.length} jugadores</p>
-              <p>🎯 {selectedAwayTeam?.color && `Color: ${selectedAwayTeam.color}`}</p>
-            </div>
-            <div className="players-preview">
-              {selectedAwayTeam?.players.slice(0, 6).map((p) => (
-                <div key={p.id} className="player-mini">
-                  #{p.number}
-                </div>
-              ))}
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <button
+              onClick={handleBack}
+              style={{
+                padding: "10px 16px",
+                background: "#95a5a6",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              ← Atrás
+            </button>
+            <button
+              onClick={handleConfirmMatch}
+              style={{
+                padding: "10px 16px",
+                background: "#27ae60",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              ✓ Confirmar Partido
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="actions">
-          <button className="back-btn" onClick={goBack}>
-            ← Volver
-          </button>
-          <button className="confirm-btn" onClick={handleConfirm}>
-            ✓ Crear Partido
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+      {(currentStep === "selectHome" || currentStep === "selectAway") && (
+        <button
+          onClick={handleBack}
+          style={{
+            marginTop: "20px",
+            padding: "8px 12px",
+            background: "#95a5a6",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          ← Atrás
+        </button>
+      )}
+    </div>
+  );
 }
