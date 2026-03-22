@@ -3,7 +3,7 @@
  * PHASE 3 - Flujo de Asignación de Roles y Posiciones
  * 
  * Permite asignar jugadores a posiciones en cancha (1-6)
- * para ambos equipos en la rotación inicial.
+ * para ambos equipos en la rotación inicial usando drag and drop.
  */
 
 "use client";
@@ -24,7 +24,7 @@ interface RoleAssignmentFlowProps {
   onBack: () => void;
 }
 
-const POSITIONS: CourtPosition[] = [1, 2, 3, 4, 5, 6];
+const POSITIONS: CourtPosition[] = [4, 3, 2, 5, 6, 1];
 
 const POSITION_NAMES: Record<CourtPosition, string> = {
   1: "Izquierda Trasera",
@@ -66,7 +66,8 @@ export function RoleAssignmentFlow({
   });
 
   const [currentTeam, setCurrentTeam] = useState<"home" | "away">("home");
-  const [suggestedPosition, setSuggestedPosition] = useState<CourtPosition | null>(null);
+  const [draggedPlayer, setDraggedPlayer] = useState<Player | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<CourtPosition | null>(null);
 
   const currentTeamData = currentTeam === "home" ? match.homeTeam : match.awayTeam;
   const currentAssignments = currentTeam === "home" ? homeAssignments : awayAssignments;
@@ -81,18 +82,60 @@ export function RoleAssignmentFlow({
   // Convertir a Record con valores no nulos cuando sea posible
   const areAllAssigned = Object.values(currentAssignments).every((p) => p !== null);
 
-  const handleAssignPlayer = (position: CourtPosition, player: Player) => {
-    if (currentTeam === "home") {
-      setHomeAssignments({
-        ...homeAssignments,
-        [position]: player,
-      });
+  const handleDragStart = (player: Player) => {
+    setDraggedPlayer(player);
+  };
+
+  const handleDragOver = (e: React.DragEvent, position: CourtPosition) => {
+    e.preventDefault();
+    setDragOverPosition(position);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverPosition(null);
+  };
+
+  const handleDrop = (position: CourtPosition) => {
+    if (!draggedPlayer) return;
+
+    // Verificar si el jugador ya está asignado a otra posición
+    const currentPosition = Object.entries(currentAssignments).find(
+      ([_, player]) => player?.id === draggedPlayer.id
+    )?.[0];
+
+    if (currentPosition) {
+      // Si ya está asignado, remover de la posición anterior
+      const updatedAssignments = { ...currentAssignments };
+      updatedAssignments[parseInt(currentPosition) as CourtPosition] = null;
+      
+      if (currentTeam === "home") {
+        setHomeAssignments({
+          ...updatedAssignments,
+          [position]: draggedPlayer,
+        });
+      } else {
+        setAwayAssignments({
+          ...updatedAssignments,
+          [position]: draggedPlayer,
+        });
+      }
     } else {
-      setAwayAssignments({
-        ...awayAssignments,
-        [position]: player,
-      });
+      // Asignar a nueva posición
+      if (currentTeam === "home") {
+        setHomeAssignments({
+          ...homeAssignments,
+          [position]: draggedPlayer,
+        });
+      } else {
+        setAwayAssignments({
+          ...awayAssignments,
+          [position]: draggedPlayer,
+        });
+      }
     }
+
+    setDraggedPlayer(null);
+    setDragOverPosition(null);
   };
 
   const handleRemoveAssignment = (position: CourtPosition) => {
@@ -138,6 +181,7 @@ export function RoleAssignmentFlow({
   };
 
   return (
+    <>
     <div style={{ padding: "20px" }}>
       <h3>📋 Asignar Posiciones en Cancha</h3>
 
@@ -189,36 +233,70 @@ export function RoleAssignmentFlow({
         </div>
       </div>
 
-      {/* Asignaciones */}
-      <div style={{ marginBottom: "20px" }}>
-        <h4>Posiciones: {currentTeamData.name}</h4>
+      {/* Indicador de drag en progreso */}
+      {draggedPlayer && (
         <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: "12px",
+          position: "fixed",
+          top: "20px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#3498db",
+          color: "white",
+          padding: "8px 16px",
+          borderRadius: "20px",
+          fontSize: "14px",
+          fontWeight: "bold",
+          zIndex: 1000,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         }}>
+          Arrastrando: #{draggedPlayer.number} {draggedPlayer.name}
+        </div>
+      )}
+
+      {/* Asignaciones con Drag & Drop */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: "12px",
+      }}>
           {POSITIONS.map((position) => {
             const assigned = currentAssignments[position];
+            const isDragOver = dragOverPosition === position;
             return (
               <div
                 key={position}
+                onDragOver={(e) => handleDragOver(e, position)}
+                onDragLeave={handleDragLeave}
+                onDrop={() => handleDrop(position)}
                 style={{
                   padding: "12px",
-                  border: "2px solid #ddd",
+                  border: `2px ${isDragOver ? 'solid' : 'dashed'} ${isDragOver ? '#27ae60' : '#ddd'}`,
                   borderRadius: "8px",
-                  background: assigned ? "#e8f5e9" : "#fafafa",
+                  background: assigned ? "#e8f5e9" : isDragOver ? "#d4edda" : "#fafafa",
+                  minHeight: "80px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  transform: isDragOver ? "scale(1.05)" : "scale(1)",
+                  boxShadow: isDragOver ? "0 4px 8px rgba(0,0,0,0.1)" : "none",
                 }}
               >
-                <div style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
+                <div style={{ fontSize: "12px", color: "#666", marginBottom: "4px" }}>
                   <strong>POS {position}</strong>
                 </div>
-                <div style={{ fontSize: "11px", color: "#999", marginBottom: "8px" }}>
+                <div style={{ fontSize: "10px", color: "#999", marginBottom: "8px", textAlign: "center" }}>
                   {POSITION_NAMES[position]}
                 </div>
                 {assigned ? (
-                  <div>
-                    <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
                       #{assigned.number} {assigned.name}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#666", marginBottom: "8px" }}>
+                      {assigned.primaryRole}
                     </div>
                     <button
                       onClick={() => handleRemoveAssignment(position)}
@@ -230,15 +308,14 @@ export function RoleAssignmentFlow({
                         borderRadius: "3px",
                         fontSize: "12px",
                         cursor: "pointer",
-                        width: "100%",
                       }}
                     >
                       Quitar
                     </button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: "12px", color: "#999" }}>
-                    Sin asignar
+                  <div style={{ fontSize: "12px", color: dragOverPosition === position ? "#27ae60" : "#999", textAlign: "center" }}>
+                    {dragOverPosition === position ? "¡Suelta aquí!" : "Arrastra un jugador aquí"}
                   </div>
                 )}
               </div>
@@ -247,56 +324,60 @@ export function RoleAssignmentFlow({
         </div>
       </div>
 
-      {/* Jugadores disponibles */}
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ marginBottom: '20px' }}>
         <h4>Jugadores disponibles:</h4>
         {availablePlayers.length === 0 ? (
           <p style={{ color: "#999" }}>Todos los jugadores han sido asignados</p>
         ) : (
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
             gap: "8px",
           }}>
             {availablePlayers.map((player) => (
               <div
                 key={player.id}
+                draggable
+                onDragStart={() => handleDragStart(player)}
                 style={{
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  background: "#f9f9f9",
+                  padding: "12px",
+                  border: "2px solid #3498db",
+                  borderRadius: "8px",
+                  background: "#f8f9fa",
+                  cursor: "grab",
+                  userSelect: "none",
+                  transition: "all 0.2s ease",
+                  position: "relative",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#e3f2fd";
+                  e.currentTarget.style.transform = "scale(1.02)";
+                  e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#f8f9fa";
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
               >
-                <div style={{ fontWeight: "bold", marginBottom: "6px" }}>
+                <div style={{
+                  position: "absolute",
+                  top: "4px",
+                  right: "4px",
+                  fontSize: "12px",
+                  color: "#666"
+                }}>
+                  ✋
+                </div>
+                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
                   #{player.number} {player.name}
                 </div>
-                <div style={{ fontSize: "11px", color: "#666", marginBottom: "6px" }}>
+                <div style={{ fontSize: "11px", color: "#666", marginBottom: "4px" }}>
                   {player.primaryRole}
                 </div>
-                <select
-                  onChange={(e) => {
-                    const pos = parseInt(e.target.value) as CourtPosition;
-                    if (pos) {
-                      handleAssignPlayer(pos, player);
-                    }
-                  }}
-                  defaultValue=""
-                  style={{
-                    width: "100%",
-                    padding: "4px",
-                    fontSize: "12px",
-                    borderRadius: "3px",
-                    border: "1px solid #ccc",
-                  }}
-                >
-                  <option value="">→ Posición</option>
-                  {POSITIONS.map((pos) => (
-                    <option key={pos} value={pos} disabled={!!currentAssignments[pos]}>
-                      Pos {pos}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ fontSize: "10px", color: "#999" }}>
+                  Arrastra a una posición
+                </div>
               </div>
             ))}
           </div>
@@ -353,6 +434,6 @@ export function RoleAssignmentFlow({
           ✓ Equipo local completado. Cambiar al equipo visitante →
         </div>
       )}
-    </div>
+    </>
   );
 }
