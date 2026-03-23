@@ -2,6 +2,8 @@
 
 import type { Zone } from "@/types/stats";
 import type { SpikeVector } from "@/types/spike";
+import type { Action } from "@/types/volley-model";
+import { ActionLog } from "./ActionLog";
 import { averageAngle } from "@/utils/spikeMath";
 import { classifyDirection, directionPatterns } from "@/utils/spikeMath";
 
@@ -9,9 +11,10 @@ export type SpikeTrajectoriesByZone = Record<Zone, SpikeVector[]>;
 
 export interface StatsProps {
   trajectories: SpikeTrajectoriesByZone;
+  actions?: Action[];
 }
 
-export function Stats({ trajectories }: StatsProps) {
+export function Stats({ trajectories, actions }: StatsProps) {
   // Calcular stats básicos
   const complexStats: Record<string, number> = {};
   const roleStats: Record<string, number> = {};
@@ -168,6 +171,8 @@ export function Stats({ trajectories }: StatsProps) {
           ))}
         </div>
       ))}
+
+      {actions && actions.length > 0 && <ActionLog actions={actions} />}
     </section>
   );
 }

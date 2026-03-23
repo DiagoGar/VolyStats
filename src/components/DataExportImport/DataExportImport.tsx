@@ -6,16 +6,20 @@ import type { GameStats } from "@/hooks/useGameStats";
 interface DataExportImportProps {
   trajectories: GameTrajectories;
   stats: any; // GameStats
+  match?: any;
   onImportTrajectories: (data: GameTrajectories) => void;
   onImportStats: (data: any) => void;
+  onImportMatch: (data: any) => void;
   onReset: () => void;
 }
 
 export function DataExportImport({
   trajectories,
   stats,
+  match,
   onImportTrajectories,
   onImportStats,
+  onImportMatch,
   onReset,
 }: DataExportImportProps) {
   const [importMessage, setImportMessage] = useState<string>("");
@@ -31,7 +35,7 @@ export function DataExportImport({
   };
 
   const handleExportAll = () => {
-    const allData = { trajectories, stats, timestamp: new Date().toISOString() };
+    const allData = { trajectories, stats, match, timestamp: new Date().toISOString() };
     const timestamp = new Date().toISOString().slice(0, 10);
     exportData(allData, `voley-stats-complete-${timestamp}.json`);
   };
@@ -52,11 +56,18 @@ export function DataExportImport({
         // Archivo completo
         onImportTrajectories(data.trajectories);
         onImportStats(data.stats);
+        if (data.match) {
+          onImportMatch(data.match);
+        }
         setImportMessage("✓ Datos completos importados exitosamente");
       } else if (data.own && data.opponent) {
         // Trayectorias
         onImportTrajectories(data);
         setImportMessage("✓ Trayectorias importadas exitosamente");
+      } else if (data.homeTeam && data.awayTeam && Array.isArray(data.actions)) {
+        // Partido completo
+        onImportMatch(data);
+        setImportMessage("✓ Partido importado exitosamente");
       } else {
         // Stats
         onImportStats(data);

@@ -244,7 +244,9 @@ export interface Action {
   // Resultado
   evaluation?: ActionEvaluation; // Cómo salió
   targetZone?: ActionZone; // Hacia dónde fue (si aplica)
-  
+  complex?: "K1" | "K2" | "K3" | "K4";
+  team?: "home" | "away";
+
   // Metadatos
   timestamp: number; // Momento dentro del set
   setNumber: number;

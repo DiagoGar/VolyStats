@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Court } from "@/components/Court/Court";
 import { Stats } from "@/components/Stats/Stats";
 import { DataExportImport } from "@/components/DataExportImport/DataExportImport";
@@ -9,31 +9,78 @@ import { RotationConfigFlow } from "@/components/RotationFlow/RotationConfigFlow
 import { RoleAssignmentFlow } from "@/components/RotationFlow/RoleAssignmentFlow";
 import { useGameStats } from "@/hooks/useGameStats";
 import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTrajectories";
-import { clearStorage, storageKeys } from "@/hooks/usePersistentStorage";
+import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
+import type { Complex, PlayerRole } from "@/types/spike";
 
 export default function Page() {
-  const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
+  const [currentMatch, setCurrentMatch] = useState<Match | null>(() =>
+    loadFromStorage<Match | null>(storageKeys.match, null)
+  );
   const [rotationConfig, setRotationConfig] = useState<{
     homeTeamSetter: Player;
     awayTeamSetter: Player;
     rotationType: RotationType;
-  } | null>(null);
+  } | null>(() =>
+    loadFromStorage<{
+      homeTeamSetter: Player;
+      awayTeamSetter: Player;
+      rotationType: RotationType;
+    } | null>(storageKeys.rotationConfig, null)
+  );
   const [roleAssignments, setRoleAssignments] = useState<{
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
-  } | null>(null);
+  } | null>(() =>
+    loadFromStorage<{
+      homeTeamAssignments: Record<CourtPosition, Player>;
+      awayTeamAssignments: Record<CourtPosition, Player>;
+    } | null>(storageKeys.roleAssignments, null)
+  );
   const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (currentMatch) {
+      localStorage.setItem(storageKeys.match, JSON.stringify(currentMatch));
+    } else {
+      localStorage.removeItem(storageKeys.match);
+    }
+  }, [currentMatch]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (rotationConfig) {
+      localStorage.setItem(storageKeys.rotationConfig, JSON.stringify(rotationConfig));
+    } else {
+      localStorage.removeItem(storageKeys.rotationConfig);
+    }
+  }, [rotationConfig]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (roleAssignments) {
+      localStorage.setItem(storageKeys.roleAssignments, JSON.stringify(roleAssignments));
+    } else {
+      localStorage.removeItem(storageKeys.roleAssignments);
+    }
+  }, [roleAssignments]);
 
   const handleResetAll = () => {
     resetStats();
     resetTrajectories();
+    setCurrentMatch(null);
+    setRotationConfig(null);
+    setRoleAssignments(null);
     clearStorage(storageKeys.trajectories);
     clearStorage(storageKeys.stats);
+    clearStorage(storageKeys.match);
+    clearStorage(storageKeys.rotationConfig);
+    clearStorage(storageKeys.roleAssignments);
   };
 
   const handleImportTrajectories = (data: GameTrajectories) => {
@@ -75,6 +122,75 @@ export default function Page() {
 
   const handleBackToRotationConfig = () => {
     setRoleAssignments(null);
+  };
+
+  const getPlayerFromTeamByZone = (team: "own" | "opponent", zone: number): Player | undefined => {
+    if (!roleAssignments) return undefined;
+    const position = zone as CourtPosition;
+    return team === "own" ? roleAssignments.homeTeamAssignments[position] : roleAssignments.awayTeamAssignments[position];
+  };
+
+  const addMatchAction = ({
+    team,
+    zone,
+    complex,
+    playerRole,
+    evaluation,
+  }: {
+    team: "own" | "opponent";
+    zone: number;
+    complex?: Complex;
+    playerRole?: PlayerRole;
+    evaluation?: ActionEvaluation;
+  }) => {
+    if (!currentMatch) return;
+
+    const player = getPlayerFromTeamByZone(team, zone);
+    const position = zone as CourtPosition;
+    const rotationId = team === "own" ? currentMatch.currentHomeRotation?.id : currentMatch.currentAwayRotation?.id;
+
+    const action: Action = {
+      id: crypto.randomUUID(),
+      playerId: player?.id || "",
+      playerRole: playerRole || (player?.primaryRole ?? "zaguero"),
+      actionType: "ataque",
+      zone: zone as any,
+      position: position,
+      rotationId: rotationId || "",
+      evaluation,
+      targetZone: undefined,
+      complex,
+      team: team === "own" ? "home" : "away",
+      timestamp: Date.now(),
+      setNumber: currentMatch.currentSet,
+      pointNumber: currentMatch.actions.length + 1,
+    };
+
+    setCurrentMatch((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        actions: [...prev.actions, action],
+      };
+    });
+  };
+
+  const handleAttack = (team: "own" | "opponent", zone: number) => {
+    addAttack(team, zone as any);
+    addMatchAction({ team, zone, evaluation: undefined });
+  };
+
+  const handleSpikeDraw = (
+    team: "own" | "opponent",
+    zone: number,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    complex: Complex,
+    playerRole?: PlayerRole,
+    evaluation?: ActionEvaluation
+  ) => {
+    addTrajectory(team, zone as any, start, end, complex, playerRole, evaluation);
+    addMatchAction({ team, zone, complex, playerRole, evaluation });
   };
 
   // Si no hay partido configurado, mostrar setup
@@ -134,22 +250,24 @@ export default function Page() {
       <Court
         stats={stats}
         trajectories={trajectories}
-        onAttack={addAttack}
+        onAttack={handleAttack}
         onToggleMode={toggleMode}
         onReset={() => {
           resetStats();
           resetTrajectories();
         }}
-        onSpikeDraw={addTrajectory}
+        onSpikeDraw={handleSpikeDraw}
       />
 
-      <Stats trajectories={trajectories.own} />
+      <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} />
 
       <DataExportImport
         trajectories={trajectories}
         stats={stats}
+        match={currentMatch}
         onImportTrajectories={handleImportTrajectories}
         onImportStats={handleImportStats}
+        onImportMatch={(match) => setCurrentMatch(match)}
         onReset={handleResetAll}
       />
     </>
