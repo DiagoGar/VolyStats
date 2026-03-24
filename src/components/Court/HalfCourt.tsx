@@ -14,7 +14,15 @@ interface HalfCourtProps {
   spikeTrajectories: SpikeTrajectoriesByZone;
   onAttack: (zone: Zone) => void;
   onToggleMode: () => void;
-  onSpikeDraw: (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }, complex: Complex, playerRole?: PlayerRole, evaluation?: Evaluation) => void;
+  onSpikeDraw: (
+    team: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    complex: Complex,
+    playerRole?: PlayerRole,
+    evaluation?: Evaluation
+  ) => void;
 }
 
 export function HalfCourt({
@@ -75,7 +83,12 @@ export function HalfCourt({
     }
   };
 
-  const handleTrajectoryDrawn = (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }) => {
+  const handleTrajectoryDrawn = (
+    teamParam: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
     if (drawState) {
       setDrawState({ ...drawState, trajectory: { start, end } });
     }
@@ -83,7 +96,15 @@ export function HalfCourt({
 
   const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
     if (drawState && drawState.trajectory) {
-      onSpikeDraw(drawState.zone, drawState.trajectory.start, drawState.trajectory.end, drawState.complex!, drawState.playerRole || undefined, evaluation);
+      onSpikeDraw(
+        team,
+        drawState.zone,
+        drawState.trajectory.start,
+        drawState.trajectory.end,
+        drawState.complex!,
+        drawState.playerRole || undefined,
+        evaluation
+      );
       setDrawState(null);
     }
   };
@@ -232,6 +253,7 @@ export function HalfCourt({
       )}
       {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && !drawState.trajectory && (
         <SpikeDraw
+          team={team}
           zone={drawState.zone}
           complex={drawState.complex}
           playerRole={drawState.playerRole}

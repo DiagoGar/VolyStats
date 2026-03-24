@@ -3,6 +3,7 @@ import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
 import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
+import { zoneOrigins } from "../SpikeDraw/zoneOrigins";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
@@ -99,7 +100,12 @@ export function FullCourt({
     }
   };
 
-  const handleTrajectoryDrawn = (zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }) => {
+  const handleTrajectoryDrawn = (
+    team: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
     if (drawState) {
       setDrawState({ ...drawState, trajectory: { start, end } });
     }
@@ -333,6 +339,7 @@ export function FullCourt({
       )}
       {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && !drawState.trajectory && (
         <SpikeDraw
+          team={drawState.team}
           zone={drawState.zone}
           complex={drawState.complex}
           playerRole={drawState.playerRole}

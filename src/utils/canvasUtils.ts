@@ -197,7 +197,8 @@ export function drawPersistentTrajectories(
   trajectories: Record<number, { start: { x: number; y: number }; end: { x: number; y: number }; complex?: string; evaluation?: string }[]>,
   filterComplex: string | null,
   filterEvaluation: string | null,
-  overrideColor?: string
+  overrideColor?: string,
+  mirrorY: boolean = false
 ) {
   // Dibujar todas las trayectorias con filtros
   Object.values(trajectories).forEach(zoneTrajectories => {
@@ -214,14 +215,17 @@ export function drawPersistentTrajectories(
         else if (trajectory.evaluation === "--") color = "#dc3545"; // Rojo para error directo
       }
 
+      const start = mirrorY ? { x: trajectory.start.x, y: 1 - trajectory.start.y } : trajectory.start;
+      const end = mirrorY ? { x: trajectory.end.x, y: 1 - trajectory.end.y } : trajectory.end;
+
       // Dibujar línea
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.globalAlpha = 0.7;
 
       ctx.beginPath();
-      ctx.moveTo(trajectory.start.x * canvas.width, trajectory.start.y * canvas.height);
-      ctx.lineTo(trajectory.end.x * canvas.width, trajectory.end.y * canvas.height);
+      ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
+      ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
       ctx.stroke();
 
       ctx.globalAlpha = 1;

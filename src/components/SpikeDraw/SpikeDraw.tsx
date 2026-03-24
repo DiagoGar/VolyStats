@@ -17,12 +17,14 @@ import {
 import "./spikeDraw.css";
 
 interface Props {
+  team: "own" | "opponent";
   zone: Zone;
   complex: Complex;
   playerRole?: PlayerRole;
   onClose: () => void;
 
   onSpikeDraw: (
+    team: "own" | "opponent",
     zone: Zone,
     start: { x: number; y: number },
     end: { x: number; y: number }
@@ -39,6 +41,7 @@ interface Props {
 }
 
 export function SpikeDraw({
+  team,
   zone,
   complex,
   playerRole,
@@ -55,7 +58,9 @@ export function SpikeDraw({
     null
   );
 
-  const origin = zoneOrigins[zone];
+  const origin = team === "opponent"
+    ? { x: zoneOrigins[zone].x, y: 1 - zoneOrigins[zone].y }
+    : zoneOrigins[zone];
 
   const handlePointerDown = (e: React.PointerEvent) => {
     const canvas = canvasRef.current!;
@@ -93,7 +98,7 @@ export function SpikeDraw({
   const handlePointerUp = () => {
     if (!isDrawing || !currentEnd) return;
 
-    onSpikeDraw(zone, origin, currentEnd);
+    onSpikeDraw(team, zone, origin, currentEnd);
 
     setIsDrawing(false);
     setCurrentEnd(null);
