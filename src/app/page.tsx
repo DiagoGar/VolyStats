@@ -12,7 +12,7 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 
@@ -113,11 +113,45 @@ export default function Page() {
     setRotationConfig(null);
   };
 
+  const createRotation = (
+    team: "home" | "away",
+    assignments: Record<CourtPosition, Player>
+  ): Rotation => ({
+    id: crypto.randomUUID(),
+    teamId: team === "home" ? currentMatch?.homeTeam.id ?? "" : currentMatch?.awayTeam.id ?? "",
+    positions: assignments,
+    setter: team === "home" ? rotationConfig?.homeTeamSetter ?? ({} as Player) : rotationConfig?.awayTeamSetter ?? ({} as Player),
+    rotationSystem: rotationConfig?.rotationType ?? "5-1",
+    currentRotationNumber: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
   const handleRoleAssignmentComplete = (config: {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   }) => {
     setRoleAssignments(config);
+
+    if (!currentMatch) return;
+
+    const homeRotation = createRotation("home", config.homeTeamAssignments);
+    const awayRotation = createRotation("away", config.awayTeamAssignments);
+
+    setCurrentMatch((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        currentHomeRotation: homeRotation,
+        currentAwayRotation: awayRotation,
+        homeRotations: [homeRotation],
+        awayRotations: [awayRotation],
+        currentSet: 1,
+        homeScore: 0,
+        awayScore: 0,
+        status: "in-progress",
+      };
+    });
   };
 
   const handleBackToRotationConfig = () => {
@@ -189,6 +223,33 @@ export default function Page() {
       } else {
         if (delta > 0) awayScore += delta;
         if (delta < 0) homeScore += Math.abs(delta);
+      }
+
+      const setWinThreshold = 25;
+      const setLead = 2;
+      const hasSetWinner =
+        (homeScore >= setWinThreshold || awayScore >= setWinThreshold) &&
+        Math.abs(homeScore - awayScore) >= setLead;
+
+      // Rotación inicial a reestablecer en cada set
+      const initialHomeRotation = prev.homeRotations[0] || prev.currentHomeRotation;
+      const initialAwayRotation = prev.awayRotations[0] || prev.currentAwayRotation;
+
+      if (hasSetWinner) {
+        const nextSet = prev.currentSet + 1;
+
+        return {
+          ...prev,
+          actions: [...prev.actions, action],
+          homeScore: 0,
+          awayScore: 0,
+          currentSet: nextSet,
+          currentHomeRotation: initialHomeRotation,
+          currentAwayRotation: initialAwayRotation,
+          homeRotations: [...prev.homeRotations, initialHomeRotation],
+          awayRotations: [...prev.awayRotations, initialAwayRotation],
+          status: nextSet > 5 ? "finished" : "in-progress",
+        };
       }
 
       return {
