@@ -272,6 +272,27 @@ export default function Page() {
         </button>
       </div>
 
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "12px 18px",
+        background: "#f5f7ff",
+        border: "1px solid #dde4ff",
+        borderRadius: "8px",
+        margin: "0 10px 15px",
+      }}>
+        <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+          {currentMatch.homeTeam.name}: {currentMatch.homeScore}
+        </div>
+        <div style={{ fontSize: "14px", color: "#33475b" }}>
+          Set {currentMatch.currentSet}
+        </div>
+        <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+          {currentMatch.awayTeam.name}: {currentMatch.awayScore}
+        </div>
+      </div>
+
       <Court
         stats={stats}
         trajectories={trajectories}
