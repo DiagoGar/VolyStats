@@ -166,11 +166,36 @@ export default function Page() {
       pointNumber: currentMatch.actions.length + 1,
     };
 
+    const evaluationPoints: Record<ActionEvaluation, number> = {
+      "#": 1,
+      "++": 1,
+      "+": 0.5,
+      "/": 0,
+      "-": 0,
+      "--": -1,
+    };
+
+    const delta = evaluation ? evaluationPoints[evaluation] : 0;
+
     setCurrentMatch((prev) => {
       if (!prev) return prev;
+
+      let homeScore = prev.homeScore;
+      let awayScore = prev.awayScore;
+
+      if (team === "own") {
+        if (delta > 0) homeScore += delta;
+        if (delta < 0) awayScore += Math.abs(delta);
+      } else {
+        if (delta > 0) awayScore += delta;
+        if (delta < 0) homeScore += Math.abs(delta);
+      }
+
       return {
         ...prev,
         actions: [...prev.actions, action],
+        homeScore,
+        awayScore,
       };
     });
   };
