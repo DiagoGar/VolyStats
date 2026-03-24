@@ -293,6 +293,51 @@
   color: white;
 }
 
+/* Leyenda de colores */
+.trajectory-legend {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 800px;
+  width: 100%;
+}
+
+.trajectory-legend h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.legend-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #999;
+  flex-shrink: 0;
+}
+
+.legend-note {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0;
+  font-style: italic;
+}
+
 /* Botón reset */
 .reset-button {
   padding: 12px 24px;

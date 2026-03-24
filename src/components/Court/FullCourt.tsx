@@ -56,10 +56,10 @@ export function FullCourt({
     if (showTrajectories) {
       // Dibujar trayectorias de ambos equipos, filtradas
       if (!filterTeam || filterTeam === "own") {
-        drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation, "#00ff00"); // Verde para own
+        drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation); // Sin override - usa la paleta completa
       }
       if (!filterTeam || filterTeam === "opponent") {
-        drawPersistentTrajectories(ctx, canvas, trajectories.opponent, filterComplex, filterEvaluation, "#ff0000"); // Rojo para opponent
+        drawPersistentTrajectories(ctx, canvas, trajectories.opponent, filterComplex, filterEvaluation); // Sin override - paleta completa
       }
     }
   }, [trajectories, filterComplex, filterEvaluation, filterTeam, showTrajectories]);
@@ -253,7 +253,41 @@ export function FullCourt({
         />
       </div>
 
-      {/* Controles de filtros */}
+      {/* Leyenda de colores */}
+      <div className="trajectory-legend">
+        <h4>Leyenda de Colores</h4>
+        <div className="legend-items">
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
+            <span># Punto directo</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#0066FF" }}></span>
+            <span>++ Muy positivo / K1</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#66CCFF" }}></span>
+            <span>+ Positivo</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#FFAA00" }}></span>
+            <span>/ Neutro / K4</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#FF6600" }}></span>
+            <span>- Negativo / K2</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#CC0000" }}></span>
+            <span>-- Error directo</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
+            <span>K3 Contraataque</span>
+          </div>
+        </div>
+        <p className="legend-note">Las flechas muestran dirección y evaluación del ataque</p>
+      </div>
       <div className="trajectory-controls">
         <button
           className={`control-btn ${showTrajectories ? 'active' : ''}`}

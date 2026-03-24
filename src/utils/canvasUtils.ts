@@ -191,6 +191,61 @@ export function drawAngularFan(
   ctx.stroke();
 }
 
+/**
+ * Determina el color de una trayectoria basado en evaluation + complex
+ * @param evaluation Evaluación de la acción (#, ++, +, /, -, --)
+ * @param complex Complejo de juego (K1, K2, K3, K4)
+ * @returns Color en formato hex
+ */
+export function getTrajectoryColor(evaluation?: string, complex?: string): string {
+  // Primero evaluar por evaluación (tiene mayor prioridad visual)
+  if (evaluation === "#") return "#00AA00"; // Verde brillante - punto directo
+  if (evaluation === "++") return "#0066FF"; // Azul - muy positivo
+  if (evaluation === "+") return "#66CCFF"; // Cian - positivo
+  if (evaluation === "/") return "#FFAA00"; // Naranja - neutro
+  if (evaluation === "-") return "#FF6600"; // Naranja oscuro - negativo
+  if (evaluation === "--") return "#CC0000"; // Rojo - error directo
+
+  // Si no hay evaluación, colorear por complejo
+  if (complex === "K1") return "#0066FF"; // Azul - Side-out
+  if (complex === "K2") return "#FF6600"; // Naranja - Break-point
+  if (complex === "K3") return "#00AA00"; // Verde - Contraataque
+  if (complex === "K4") return "#FFAA00"; // Amarillo - Freeball
+
+  return "#999999"; // Gris por defecto
+}
+
+/**
+ * Dibuja una punta de flecha al final de una línea
+ * @param ctx Contexto 2D del canvas
+ * @param fromX Coordenada X de inicio
+ * @param fromY Coordenada Y de inicio
+ * @param toX Coordenada X de fin
+ * @param toY Coordenada Y de fin
+ * @param color Color de la punta
+ * @param size Tamaño de la punta en píxeles
+ */
+export function drawArrowHead(
+  ctx: CanvasRenderingContext2D,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  color: string,
+  size: number = 12
+) {
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+
+  // Dibujar triángulo en la punta
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(toX, toY);
+  ctx.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+}
+
 export function drawPersistentTrajectories(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -208,25 +263,31 @@ export function drawPersistentTrajectories(
       if (filterEvaluation && trajectory.evaluation !== filterEvaluation) return;
 
       // Determinar color
-      let color = overrideColor || "#666"; // Usar override si existe, sino default gris
-      if (!overrideColor) {
-        if (trajectory.evaluation === "#") color = "#28a745"; // Verde para punto directo
-        else if (trajectory.evaluation === "++") color = "#007bff"; // Azul para muy positivo
-        else if (trajectory.evaluation === "--") color = "#dc3545"; // Rojo para error directo
+      let color = overrideColor;
+      if (!color) {
+        color = getTrajectoryColor(trajectory.evaluation, trajectory.complex);
       }
 
       const start = mirrorY ? { x: trajectory.start.x, y: 1 - trajectory.start.y } : trajectory.start;
       const end = mirrorY ? { x: trajectory.end.x, y: 1 - trajectory.end.y } : trajectory.end;
 
+      const startX = start.x * canvas.width;
+      const startY = start.y * canvas.height;
+      const endX = end.x * canvas.width;
+      const endY = end.y * canvas.height;
+
       // Dibujar línea
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.8;
 
       ctx.beginPath();
-      ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
-      ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
       ctx.stroke();
+
+      // Dibujar punta de flecha
+      drawArrowHead(ctx, startX, startY, endX, endY, color, 10);
 
       ctx.globalAlpha = 1;
     });
