@@ -40,6 +40,10 @@ export default function Page() {
       awayTeamAssignments: Record<CourtPosition, Player>;
     } | null>(storageKeys.roleAssignments, null)
   );
+  const [initialRoleAssignments, setInitialRoleAssignments] = useState<{
+    homeTeamAssignments: Record<CourtPosition, Player>;
+    awayTeamAssignments: Record<CourtPosition, Player>;
+  } | null>(null);
   const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
 
@@ -132,6 +136,7 @@ export default function Page() {
     awayTeamAssignments: Record<CourtPosition, Player>;
   }) => {
     setRoleAssignments(config);
+    setInitialRoleAssignments(config);
 
     if (!currentMatch) return;
 
@@ -156,6 +161,29 @@ export default function Page() {
 
   const handleBackToRotationConfig = () => {
     setRoleAssignments(null);
+  };
+
+  const rotateAssignments = (teamType: "home" | "away") => {
+    if (!roleAssignments) return;
+
+    const assignments = teamType === "home" ? roleAssignments.homeTeamAssignments : roleAssignments.awayTeamAssignments;
+    const rotated: Record<CourtPosition, Player> = {} as Record<CourtPosition, Player>;
+
+    // Rotación: 1->2, 2->3, 3->4, 4->5, 5->6, 6->1
+    rotated[1] = assignments[6];
+    rotated[2] = assignments[1];
+    rotated[3] = assignments[2];
+    rotated[4] = assignments[3];
+    rotated[5] = assignments[4];
+    rotated[6] = assignments[5];
+
+    setRoleAssignments((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        [teamType === "home" ? "homeTeamAssignments" : "awayTeamAssignments"]: rotated,
+      };
+    });
   };
 
   const getPlayerFromTeamByZone = (team: "own" | "opponent", zone: number): Player | undefined => {
@@ -211,29 +239,30 @@ export default function Page() {
 
     const delta = evaluation ? evaluationPoints[evaluation] : 0;
 
+    // Calcular nuevos scores
+    let homeScore = currentMatch.homeScore;
+    let awayScore = currentMatch.awayScore;
+
+    if (team === "own") {
+      if (delta > 0) homeScore += delta;
+      if (delta < 0) awayScore += Math.abs(delta);
+    } else {
+      if (delta > 0) awayScore += delta;
+      if (delta < 0) homeScore += Math.abs(delta);
+    }
+
+    const setWinThreshold = 25;
+    const setLead = 2;
+    const hasSetWinner =
+      (homeScore >= setWinThreshold || awayScore >= setWinThreshold) &&
+      Math.abs(homeScore - awayScore) >= setLead;
+
+    // Rotación inicial a reestablecer en cada set
+    const initialHomeRotation = currentMatch.homeRotations[0] || currentMatch.currentHomeRotation;
+    const initialAwayRotation = currentMatch.awayRotations[0] || currentMatch.currentAwayRotation;
+
     setCurrentMatch((prev) => {
       if (!prev) return prev;
-
-      let homeScore = prev.homeScore;
-      let awayScore = prev.awayScore;
-
-      if (team === "own") {
-        if (delta > 0) homeScore += delta;
-        if (delta < 0) awayScore += Math.abs(delta);
-      } else {
-        if (delta > 0) awayScore += delta;
-        if (delta < 0) homeScore += Math.abs(delta);
-      }
-
-      const setWinThreshold = 25;
-      const setLead = 2;
-      const hasSetWinner =
-        (homeScore >= setWinThreshold || awayScore >= setWinThreshold) &&
-        Math.abs(homeScore - awayScore) >= setLead;
-
-      // Rotación inicial a reestablecer en cada set
-      const initialHomeRotation = prev.homeRotations[0] || prev.currentHomeRotation;
-      const initialAwayRotation = prev.awayRotations[0] || prev.currentAwayRotation;
 
       if (hasSetWinner) {
         const nextSet = prev.currentSet + 1;
@@ -259,6 +288,16 @@ export default function Page() {
         awayScore,
       };
     });
+
+    // Resetear asignaciones de roles al inicial si terminó el set
+    if (hasSetWinner) {
+      setRoleAssignments(initialRoleAssignments);
+    }
+
+    // Rotar si se ganó un punto
+    if (delta > 0) {
+      rotateAssignments(team === "own" ? "home" : "away");
+    }
   };
 
   const handleAttack = (team: "own" | "opponent", zone: number) => {
@@ -357,6 +396,7 @@ export default function Page() {
       <Court
         stats={stats}
         trajectories={trajectories}
+        roleAssignments={roleAssignments}
         onAttack={handleAttack}
         onToggleMode={toggleMode}
         onReset={() => {

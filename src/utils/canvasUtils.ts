@@ -196,7 +196,8 @@ export function drawPersistentTrajectories(
   canvas: HTMLCanvasElement,
   trajectories: Record<number, { start: { x: number; y: number }; end: { x: number; y: number }; complex?: string; evaluation?: string }[]>,
   filterComplex: string | null,
-  filterEvaluation: string | null
+  filterEvaluation: string | null,
+  overrideColor?: string
 ) {
   // Dibujar todas las trayectorias con filtros
   Object.values(trajectories).forEach(zoneTrajectories => {
@@ -205,11 +206,13 @@ export function drawPersistentTrajectories(
       if (filterComplex && trajectory.complex !== filterComplex) return;
       if (filterEvaluation && trajectory.evaluation !== filterEvaluation) return;
 
-      // Determinar color basado en evaluación
-      let color = "#666"; // Default gris
-      if (trajectory.evaluation === "#") color = "#28a745"; // Verde para punto directo
-      else if (trajectory.evaluation === "++") color = "#007bff"; // Azul para muy positivo
-      else if (trajectory.evaluation === "--") color = "#dc3545"; // Rojo para error directo
+      // Determinar color
+      let color = overrideColor || "#666"; // Usar override si existe, sino default gris
+      if (!overrideColor) {
+        if (trajectory.evaluation === "#") color = "#28a745"; // Verde para punto directo
+        else if (trajectory.evaluation === "++") color = "#007bff"; // Azul para muy positivo
+        else if (trajectory.evaluation === "--") color = "#dc3545"; // Rojo para error directo
+      }
 
       // Dibujar línea
       ctx.strokeStyle = color;

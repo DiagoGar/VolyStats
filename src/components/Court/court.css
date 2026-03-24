@@ -17,16 +17,15 @@
   max-width: 1200px;
 }
 
-/* Mitad de cancha */
-.half-court {
-  flex: 1;
+/* Cancha completa */
+.full-court {
   display: flex;
   flex-direction: column;
   gap: 12px;
   align-items: center;
 }
 
-.half-court-header {
+.court-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -38,9 +37,14 @@
   gap: 8px;
 }
 
-.team-name {
+.court-title {
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 1.2rem;
+}
+
+.mode-toggles {
+  display: flex;
+  gap: 8px;
 }
 
 .mode-toggle {
@@ -59,37 +63,111 @@
   transform: scale(0.95);
 }
 
-/* Divisor entre mitades */
-.court-divider {
-  width: 100%;
-  height: 1px;
-  background: #333;
-}
-
 /* Cancha individual */
 .court {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
-
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 600px;
-  aspect-ratio: 3 / 2;
-
-  border: 1px solid #333;
-  padding: 12px;
+  max-width: 800px;
+  aspect-ratio: 3 / 4;
+  border: 2px solid #333;
   background-color: #f7941d;
   position: relative;
+  overflow: hidden;
 }
 
-.court-canvas {
+.team-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.opponent-section {
+  border-bottom: 2px solid #333;
+}
+
+.own-section {
+  border-top: 2px solid #333;
+}
+
+.team-label {
+  text-align: center;
+  font-weight: bold;
+  color: white;
+  background: rgba(0,0,0,0.7);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.zones-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.back-row {
+  margin-bottom: 8px;
+}
+
+.zone {
+  aspect-ratio: 1;
+  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.zone:hover:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.zone.disabled {
+  background-color: rgba(0, 0, 0, 0.3);
+  cursor: not-allowed;
+}
+
+.zone-label {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.player-name {
+  font-size: 0.7rem;
+  color: yellow;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  margin: 2px 0;
+}
+
+.zone-value {
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.center-line {
+  width: 100%;
+  height: 2px;
+  background: #333;
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
+/* Canvas para trayectorias */
 .trajectory-canvas {
   position: absolute;
   inset: 12px;
@@ -97,6 +175,143 @@
   pointer-events: none;
   width: calc(100% - 24px);
   height: calc(100% - 24px);
+}
+
+/* Controles de filtros */
+.trajectory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  background: #f0f0f0;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.control-btn {
+  padding: 8px 16px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.control-btn.active {
+  background: #f7931e;
+  color: white;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.filter-group label {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.filter-group select {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* Modales */
+.complex-selector-overlay,
+.role-selector-overlay,
+.evaluation-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.complex-selector,
+.role-selector,
+.evaluation-selector {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.complex-buttons,
+.role-buttons,
+.evaluation-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.complex-buttons button,
+.role-buttons button,
+.evaluation-buttons button,
+.cancel-btn,
+.skip-btn {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.complex-buttons button:hover,
+.role-buttons button:hover,
+.evaluation-buttons button:hover {
+  background: #f0f0f0;
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+  margin-top: 16px;
+}
+
+.skip-btn {
+  background: #6c757d;
+  color: white;
+}
+
+/* Botón reset */
+.reset-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #dc3545;
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reset-button:hover {
+  background: #c82333;
+}
+
+.reset-button:active {
+  transform: scale(0.95);
 }
 
 .trajectory-controls {
