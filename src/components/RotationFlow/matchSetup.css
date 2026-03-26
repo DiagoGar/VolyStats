@@ -100,6 +100,7 @@
 .selected-team .team-info p {
   margin: 0;
   line-height: 1.4;
+  color: #333;
 }
 
 .selected-team .team-name {
@@ -149,6 +150,7 @@
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
+  color: #333;
 }
 
 .team-option:hover {
@@ -171,13 +173,13 @@
 .team-option .name {
   margin: 0;
   font-weight: bold;
-  color: #333;
+  color: #333 !important;
   font-size: 0.95rem;
 }
 
 .team-option .count {
   margin: 2px 0 0 0;
-  color: #999;
+  color: #666 !important;
   font-size: 0.85rem;
 }
 
@@ -231,6 +233,8 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1rem;
+  color: #333;
+  background-color: white;
 }
 
 .color-picker {
@@ -281,6 +285,8 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.9rem;
+  color: #333;
+  background-color: white;
 }
 
 .number-input {
