@@ -179,7 +179,7 @@ export function MatchSetupFlow({
         <div>
           <h3>Paso 1/3: Equipo Local</h3>
           {homeTeam && (
-            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", borderRadius: "4px" }}>
+            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", color: "#000", borderRadius: "4px" }}>
               <p><strong>Seleccionado:</strong> {homeTeam.name} ({homeTeam.players.length} jugadores)</p>
               <button
                 onClick={() => setHomeTeam(null)}
@@ -211,6 +211,7 @@ export function MatchSetupFlow({
                         style={{
                           padding: "12px",
                           background: "#f9f9f9",
+                          color: "#333",
                           border: "1px solid #ddd",
                           borderRadius: "4px",
                           cursor: "pointer",
@@ -262,11 +263,11 @@ export function MatchSetupFlow({
       {currentStep === "selectAway" && (
         <div>
           <h3>Paso 2/3: Equipo Visitante</h3>
-          <p style={{ background: "#e8f5e9", padding: "10px", borderRadius: "4px", marginBottom: "15px" }}>
+          <p style={{ background: "#e8f5e9", color: "#333", padding: "10px", borderRadius: "4px", marginBottom: "15px" }}>
             Local: <strong>{homeTeam?.name}</strong>
           </p>
           {awayTeam && (
-            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", borderRadius: "4px" }}>
+            <div style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0", color: "#333", borderRadius: "4px" }}>
               <p><strong>Seleccionado:</strong> {awayTeam.name} ({awayTeam.players.length} jugadores)</p>
               <button
                 onClick={() => setAwayTeam(null)}
@@ -359,12 +360,12 @@ export function MatchSetupFlow({
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ textAlign: "center", flex: 1 }}>
-                <h4>{homeTeam.name}</h4>
+                <h4 style={{color: "#333"}}>{homeTeam.name}</h4>
                 <p style={{ color: "#999", fontSize: "12px" }}>{homeTeam.players.length} jugadores</p>
               </div>
-              <div style={{ fontSize: "20px", padding: "0 20px", color: "#999" }}>vs</div>
+              <div style={{ fontSize: "20px", padding: "0 20px", color: "#5f5f5f" }}>vs</div>
               <div style={{ textAlign: "center", flex: 1 }}>
-                <h4>{awayTeam.name}</h4>
+                <h4 style={ {color: "#333"} }>{awayTeam.name}</h4>
                 <p style={{ color: "#999", fontSize: "12px" }}>{awayTeam.players.length} jugadores</p>
               </div>
             </div>
