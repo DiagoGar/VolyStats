@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { exportData, importData } from "@/hooks/usePersistentStorage";
-import type { GameTrajectories } from "@/hooks/useGameTrajectories";
+import type { GameTrajectories, GameTrajectoryHistory } from "@/hooks/useGameTrajectories";
 import type { GameStats } from "@/hooks/useGameStats";
-import type { SpikeVector } from "@/types/spike";
 
 interface DataExportImportProps {
   trajectories: GameTrajectories;
-  trajectoryHistory: { own: SpikeVector[]; opponent: SpikeVector[] };
+  trajectoryHistory: GameTrajectoryHistory;
   stats: any; // GameStats
   match?: any;
   onImportTrajectories: (data: GameTrajectories) => void;

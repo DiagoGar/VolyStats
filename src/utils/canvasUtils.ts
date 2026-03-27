@@ -254,7 +254,8 @@ export function drawPersistentTrajectories(
   filterEvaluation: string | null,
   overrideColor?: string,
   mirrorY: boolean = false,
-  opacity: number = 0.8
+  opacity: number = 0.8,
+  lineWidth: number = 2.5
 ) {
   // Dibujar todas las trayectorias con filtros
   Object.values(trajectories).forEach(zoneTrajectories => {
@@ -279,7 +280,7 @@ export function drawPersistentTrajectories(
 
       // Dibujar línea
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = lineWidth;
       ctx.globalAlpha = opacity;
 
       ctx.beginPath();

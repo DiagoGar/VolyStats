@@ -1,15 +1,15 @@
 import { FullCourt } from "./FullCourt";
 import type { Zone } from "@/types/stats";
 import type { GameStats } from "@/hooks/useGameStats";
-import type { GameTrajectories } from "@/hooks/useGameTrajectories";
-import type { Complex, PlayerRole, Evaluation, SpikeVector } from "@/types/spike";
+import type { GameTrajectories, GameTrajectoryHistory } from "@/hooks/useGameTrajectories";
+import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import type { CourtPosition, Player } from "@/types/volley-model";
 import "./court.css";
 
 interface Props {
   stats: GameStats;
   trajectories: GameTrajectories;
-  trajectoryHistory: { own: SpikeVector[]; opponent: SpikeVector[] };
+  trajectoryHistory: GameTrajectoryHistory;
   roleAssignments: {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;

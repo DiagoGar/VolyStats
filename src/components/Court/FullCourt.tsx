@@ -3,10 +3,9 @@ import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
 import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
-import { zoneOrigins } from "../SpikeDraw/zoneOrigins";
-import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
+import type { GameTrajectoryHistory, SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState, useRef, useEffect } from "react";
-import type { Complex, PlayerRole, Evaluation, SpikeVector } from "@/types/spike";
+import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import { drawPersistentTrajectories } from "@/utils/canvasUtils";
 import type { CourtPosition, Player } from "@/types/volley-model";
 
@@ -19,10 +18,7 @@ interface FullCourtProps {
     own: SpikeTrajectoriesByZone;
     opponent: SpikeTrajectoriesByZone;
   };
-  trajectoryHistory: {
-    own: SpikeVector[];
-    opponent: SpikeVector[];
-  };
+  trajectoryHistory: GameTrajectoryHistory;
   roleAssignments: {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
@@ -46,8 +42,9 @@ export function FullCourt({
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
   const [showTrajectories, setShowTrajectories] = useState(true);
-  const [selectedHistoryTrajectory, setSelectedHistoryTrajectory] = useState<SpikeVector | null>(null);
+  const [selectedHistoryRallyId, setSelectedHistoryRallyId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const historyPoints = trajectoryHistory?.rallies?.filter((rally) => rally.directPoint) ?? [];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -70,12 +67,34 @@ export function FullCourt({
     }
 
     // Dibujar trayectoria seleccionada del historial con resaltado especial
-    if (selectedHistoryTrajectory) {
-      const team = trajectoryHistory.own.includes(selectedHistoryTrajectory) ? "own" : "opponent";
-      const zoneMap = { [selectedHistoryTrajectory.zone]: [selectedHistoryTrajectory] };
-      drawPersistentTrajectories(ctx, canvas, zoneMap, null, null, "#FFD700", false, 1.0); // Color dorado, opacidad completa
+    if (selectedHistoryRallyId) {
+      const selectedRally = trajectoryHistory?.rallies?.find((rally) => rally.id === selectedHistoryRallyId);
+
+      if (selectedRally) {
+        const rallyItems = selectedRally.trajectories;
+        const ownMap: SpikeTrajectoriesByZone = { 1: [], 2: [], 3: [], 4: [], 6: [] };
+        const opponentMap: SpikeTrajectoriesByZone = { 1: [], 2: [], 3: [], 4: [], 6: [] };
+
+        rallyItems.forEach((item) => {
+          if (item.team === "own") {
+            ownMap[item.spike.zone].push(item.spike);
+          } else {
+            opponentMap[item.spike.zone].push(item.spike);
+          }
+        });
+
+        drawPersistentTrajectories(ctx, canvas, ownMap, null, null, undefined, false, 1.0, 3);
+        drawPersistentTrajectories(ctx, canvas, opponentMap, null, null, undefined, false, 1.0, 3);
+
+        if (selectedRally.directPoint) {
+          const directPointMap = {
+            [selectedRally.directPoint.spike.zone]: [selectedRally.directPoint.spike],
+          };
+          drawPersistentTrajectories(ctx, canvas, directPointMap, null, null, "#FFD700", false, 1.0, 4);
+        }
+      }
     }
-  }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, showTrajectories, selectedHistoryTrajectory]);
+  }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, showTrajectories, selectedHistoryRallyId]);
 
   const getValue = (team: "own" | "opponent", zone: Zone) => {
     const teamStats = stats[team];
@@ -124,12 +143,12 @@ export function FullCourt({
     }
   };
 
-  const handleHistoryClick = (trajectory: SpikeVector) => {
-    setSelectedHistoryTrajectory(trajectory);
+  const handleHistoryClick = (rallyId: string) => {
+    setSelectedHistoryRallyId(rallyId);
   };
 
   const clearSelectedTrajectory = () => {
-    setSelectedHistoryTrajectory(null);
+    setSelectedHistoryRallyId(null);
   };
 
   const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
@@ -362,34 +381,30 @@ export function FullCourt({
 
       <div className="point-history">
         <h4>Historial de Puntos Directos</h4>
-        {selectedHistoryTrajectory && (
+        {selectedHistoryRallyId && (
           <div className="selected-indicator">
             <span>📍 Mostrando trayectoria seleccionada</span>
             <button onClick={clearSelectedTrajectory} className="clear-selection-btn">✕</button>
           </div>
         )}
-        {trajectoryHistory.own.length + trajectoryHistory.opponent.length === 0 ? (
+        {historyPoints.length === 0 ? (
           <p className="muted">No hay puntos directos anotados aún.</p>
         ) : (
           <ul>
-            {trajectoryHistory.own.map((item) => (
-              <li 
-                key={item.id}
-                className={selectedHistoryTrajectory?.id === item.id ? 'selected' : ''}
-                onClick={() => handleHistoryClick(item)}
-              >
-                <strong>{item.evaluation || '#'} </strong>Propio desde zona {item.zone}
-              </li>
-            ))}
-            {trajectoryHistory.opponent.map((item) => (
-              <li 
-                key={item.id}
-                className={selectedHistoryTrajectory?.id === item.id ? 'selected' : ''}
-                onClick={() => handleHistoryClick(item)}
-              >
-                <strong>{item.evaluation || '#'} </strong>Contrario desde zona {item.zone}
-              </li>
-            ))}
+            {historyPoints.map((rally, index) => {
+              const directPoint = rally.directPoint!;
+              const teamLabel = directPoint.team === "own" ? "Propio" : "Contrario";
+              return (
+                <li 
+                  key={rally.id}
+                  className={selectedHistoryRallyId === rally.id ? 'selected' : ''}
+                  onClick={() => handleHistoryClick(rally.id)}
+                >
+                  <strong>{directPoint.spike.evaluation || '#'} </strong>
+                  {teamLabel} desde zona {directPoint.spike.zone} â€“ Rally {index + 1} ({rally.trajectories.length} ataques)
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
