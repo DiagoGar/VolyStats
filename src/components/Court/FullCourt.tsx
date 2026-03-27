@@ -6,7 +6,7 @@ import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
 import { zoneOrigins } from "../SpikeDraw/zoneOrigins";
 import type { SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState, useRef, useEffect } from "react";
-import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
+import type { Complex, PlayerRole, Evaluation, SpikeVector } from "@/types/spike";
 import { drawPersistentTrajectories } from "@/utils/canvasUtils";
 import type { CourtPosition, Player } from "@/types/volley-model";
 
@@ -18,6 +18,10 @@ interface FullCourtProps {
   trajectories: {
     own: SpikeTrajectoriesByZone;
     opponent: SpikeTrajectoriesByZone;
+  };
+  trajectoryHistory: {
+    own: SpikeVector[];
+    opponent: SpikeVector[];
   };
   roleAssignments: {
     homeTeamAssignments: Record<CourtPosition, Player>;
@@ -31,6 +35,7 @@ interface FullCourtProps {
 export function FullCourt({
   stats,
   trajectories,
+  trajectoryHistory,
   roleAssignments,
   onAttack,
   onToggleMode,
@@ -50,16 +55,16 @@ export function FullCourt({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Limpiar canvas
+    // Limpiar canvas cada frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (showTrajectories) {
-      // Dibujar trayectorias de ambos equipos, filtradas
+      // Dibujar solo trayectorias del rally en curso (historial solo en panel de texto)
       if (!filterTeam || filterTeam === "own") {
-        drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation); // Sin override - usa la paleta completa
+        drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation);
       }
       if (!filterTeam || filterTeam === "opponent") {
-        drawPersistentTrajectories(ctx, canvas, trajectories.opponent, filterComplex, filterEvaluation); // Sin override - paleta completa
+        drawPersistentTrajectories(ctx, canvas, trajectories.opponent, filterComplex, filterEvaluation);
       }
     }
   }, [trajectories, filterComplex, filterEvaluation, filterTeam, showTrajectories]);
@@ -286,7 +291,7 @@ export function FullCourt({
             <span>K3 Contraataque</span>
           </div>
         </div>
-        <p className="legend-note">Las flechas muestran dirección y evaluación del ataque</p>
+        <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
       </div>
       <div className="trajectory-controls">
         <button
@@ -337,6 +342,26 @@ export function FullCourt({
             <option value="--">-- Error directo</option>
           </select>
         </div>
+      </div>
+
+      <div className="point-history">
+        <h4>Historial de Puntos Directos</h4>
+        {trajectoryHistory.own.length + trajectoryHistory.opponent.length === 0 ? (
+          <p className="muted">No hay puntos directos anotados aún.</p>
+        ) : (
+          <ul>
+            {trajectoryHistory.own.map((item) => (
+              <li key={item.id}>
+                <strong>{item.evaluation || '#'} </strong>Propio desde zona {item.zone}
+              </li>
+            ))}
+            {trajectoryHistory.opponent.map((item) => (
+              <li key={item.id}>
+                <strong>{item.evaluation || '#'} </strong>Contrario desde zona {item.zone}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Modales */}

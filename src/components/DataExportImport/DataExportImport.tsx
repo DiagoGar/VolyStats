@@ -2,9 +2,11 @@ import { useState } from "react";
 import { exportData, importData } from "@/hooks/usePersistentStorage";
 import type { GameTrajectories } from "@/hooks/useGameTrajectories";
 import type { GameStats } from "@/hooks/useGameStats";
+import type { SpikeVector } from "@/types/spike";
 
 interface DataExportImportProps {
   trajectories: GameTrajectories;
+  trajectoryHistory: { own: SpikeVector[]; opponent: SpikeVector[] };
   stats: any; // GameStats
   match?: any;
   onImportTrajectories: (data: GameTrajectories) => void;
@@ -15,6 +17,7 @@ interface DataExportImportProps {
 
 export function DataExportImport({
   trajectories,
+  trajectoryHistory,
   stats,
   match,
   onImportTrajectories,
@@ -35,7 +38,7 @@ export function DataExportImport({
   };
 
   const handleExportAll = () => {
-    const allData = { trajectories, stats, match, timestamp: new Date().toISOString() };
+    const allData = { trajectories, trajectoryHistory, stats, match, timestamp: new Date().toISOString() };
     const timestamp = new Date().toISOString().slice(0, 10);
     exportData(allData, `voley-stats-complete-${timestamp}.json`);
   };

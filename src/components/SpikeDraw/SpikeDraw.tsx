@@ -59,7 +59,7 @@ export function SpikeDraw({
   );
 
   const origin = team === "opponent"
-    ? { x: zoneOrigins[zone].x, y: 1 - zoneOrigins[zone].y }
+    ? { x: 1 - zoneOrigins[zone].x, y: 1 - zoneOrigins[zone].y }
     : zoneOrigins[zone];
 
   const handlePointerDown = (e: React.PointerEvent) => {

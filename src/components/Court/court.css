@@ -305,6 +305,38 @@
   width: 100%;
 }
 
+.point-history {
+  background: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.point-history h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.point-history ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.point-history li {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.point-history .muted {
+  color: #666;
+  margin: 0;
+}
+
 .trajectory-legend h4 {
   margin: 0 0 12px 0;
   font-size: 1rem;

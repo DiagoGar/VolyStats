@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 const STORAGE_KEY_TRAJECTORIES = "voley-stats:trajectories";
+const STORAGE_KEY_HISTORY = "voley-stats:trajectory-history";
 const STORAGE_KEY_STATS = "voley-stats:stats";
 const STORAGE_KEY_MATCH = "voley-stats:match";
 const STORAGE_KEY_ROTATION_CONFIG = "voley-stats:rotation-config";
@@ -94,6 +95,7 @@ export async function importData<T>(file: File): Promise<T | null> {
 
 export const storageKeys = {
   trajectories: STORAGE_KEY_TRAJECTORIES,
+  trajectoryHistory: STORAGE_KEY_HISTORY,
   stats: STORAGE_KEY_STATS,
   match: STORAGE_KEY_MATCH,
   rotationConfig: STORAGE_KEY_ROTATION_CONFIG,

@@ -11,12 +11,22 @@ export interface GameTrajectories {
   opponent: SpikeTrajectoriesByZone;
 }
 
+export interface GameTrajectoryHistory {
+  own: SpikeVector[];
+  opponent: SpikeVector[];
+}
+
 const emptyTrajectories: SpikeTrajectoriesByZone = {
   1: [],
   2: [],
   3: [],
   4: [],
   6: [],
+};
+
+const emptyTrajectoryHistory: GameTrajectoryHistory = {
+  own: [],
+  opponent: [],
 };
 
 export function useGameTrajectories() {
@@ -28,8 +38,13 @@ export function useGameTrajectories() {
     });
   });
 
-  // Persitir cambios automáticamente
+  const [history, setHistory] = useState<GameTrajectoryHistory>(() => {
+    return loadFromStorage<GameTrajectoryHistory>(storageKeys.trajectoryHistory, emptyTrajectoryHistory);
+  });
+
+  // Persistir cambios automáticamente
   usePersistentStorage(storageKeys.trajectories, trajectories);
+  usePersistentStorage(storageKeys.trajectoryHistory, history);
 
   const addTrajectory = (
     team: "own" | "opponent",
@@ -40,31 +55,48 @@ export function useGameTrajectories() {
     playerRole?: PlayerRole,
     evaluation?: Evaluation
   ) => {
-    const spikeData = createSpikeVector(zone, start, end);
+    const spikeData = createSpikeVector(zone, start, end, complex, playerRole, evaluation);
 
+    const newSpike: SpikeVector = {
+      id: crypto.randomUUID(),
+      ...spikeData,
+    };
+
+    // Si es punto directo, archivarlo y limpiar la cancha
+    if (evaluation === "#") {
+      setHistory((prev) => ({
+        ...prev,
+        [team]: [...prev[team], newSpike],
+      }));
+
+      setTrajectories({
+        own: emptyTrajectories,
+        opponent: emptyTrajectories,
+      });
+
+      return;
+    }
+
+    // Agregar a las trayectorias activas del rally
     setTrajectories((prev) => ({
       ...prev,
       [team]: {
         ...prev[team],
-        [zone]: [
-          ...prev[team][zone],
-          {
-            id: crypto.randomUUID(),
-            ...spikeData,
-            complex,
-            playerRole,
-            evaluation,
-          },
-        ],
+        [zone]: [...prev[team][zone], newSpike],
       },
     }));
   };
 
-  const resetGame = () =>
+  const resetGame = () => {
     setTrajectories({
       own: emptyTrajectories,
       opponent: emptyTrajectories,
     });
+    setHistory({
+      own: [],
+      opponent: [],
+    });
+  };
 
   const resetTeam = (team: "own" | "opponent") =>
     setTrajectories((prev) => ({
@@ -72,10 +104,19 @@ export function useGameTrajectories() {
       [team]: emptyTrajectories,
     }));
 
+  const resetHistory = () => {
+    setHistory({
+      own: [],
+      opponent: [],
+    });
+  };
+
   return {
     trajectories,
+    history,
     addTrajectory,
     resetGame,
     resetTeam,
+    resetHistory,
   };
 }

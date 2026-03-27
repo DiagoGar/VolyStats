@@ -44,7 +44,7 @@ export default function Page() {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   } | null>(null);
-  const { trajectories, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
+  const { trajectories, history, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
 
   useEffect(() => {
@@ -382,13 +382,13 @@ export default function Page() {
         borderRadius: "8px",
         margin: "0 10px 15px",
       }}>
-        <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+        <div style={{ fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
           {currentMatch.homeTeam.name}: {currentMatch.homeScore}
         </div>
         <div style={{ fontSize: "14px", color: "#33475b" }}>
           Set {currentMatch.currentSet}
         </div>
-        <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+        <div style={{ fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
           {currentMatch.awayTeam.name}: {currentMatch.awayScore}
         </div>
       </div>
@@ -396,6 +396,7 @@ export default function Page() {
       <Court
         stats={stats}
         trajectories={trajectories}
+        trajectoryHistory={history}
         roleAssignments={roleAssignments}
         onAttack={handleAttack}
         onToggleMode={toggleMode}
@@ -410,6 +411,7 @@ export default function Page() {
 
       <DataExportImport
         trajectories={trajectories}
+        trajectoryHistory={history}
         stats={stats}
         match={currentMatch}
         onImportTrajectories={handleImportTrajectories}
