@@ -412,6 +412,16 @@ export default function Page() {
         onReset={() => {
           resetStats();
           resetTrajectories();
+          setCurrentMatch((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              actions: [],
+              homeScore: 0,
+              awayScore: 0,
+              currentSet: 1,
+            };
+          });
         }}
         onSpikeDraw={handleSpikeDraw}
       />
