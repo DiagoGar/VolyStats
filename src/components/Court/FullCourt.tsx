@@ -46,6 +46,7 @@ export function FullCourt({
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
   const [showTrajectories, setShowTrajectories] = useState(true);
+  const [selectedHistoryTrajectory, setSelectedHistoryTrajectory] = useState<SpikeVector | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -67,7 +68,14 @@ export function FullCourt({
         drawPersistentTrajectories(ctx, canvas, trajectories.opponent, filterComplex, filterEvaluation);
       }
     }
-  }, [trajectories, filterComplex, filterEvaluation, filterTeam, showTrajectories]);
+
+    // Dibujar trayectoria seleccionada del historial con resaltado especial
+    if (selectedHistoryTrajectory) {
+      const team = trajectoryHistory.own.includes(selectedHistoryTrajectory) ? "own" : "opponent";
+      const zoneMap = { [selectedHistoryTrajectory.zone]: [selectedHistoryTrajectory] };
+      drawPersistentTrajectories(ctx, canvas, zoneMap, null, null, "#FFD700", false, 1.0); // Color dorado, opacidad completa
+    }
+  }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, showTrajectories, selectedHistoryTrajectory]);
 
   const getValue = (team: "own" | "opponent", zone: Zone) => {
     const teamStats = stats[team];
@@ -114,6 +122,14 @@ export function FullCourt({
     if (drawState) {
       setDrawState({ ...drawState, trajectory: { start, end } });
     }
+  };
+
+  const handleHistoryClick = (trajectory: SpikeVector) => {
+    setSelectedHistoryTrajectory(trajectory);
+  };
+
+  const clearSelectedTrajectory = () => {
+    setSelectedHistoryTrajectory(null);
   };
 
   const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
@@ -346,17 +362,31 @@ export function FullCourt({
 
       <div className="point-history">
         <h4>Historial de Puntos Directos</h4>
+        {selectedHistoryTrajectory && (
+          <div className="selected-indicator">
+            <span>📍 Mostrando trayectoria seleccionada</span>
+            <button onClick={clearSelectedTrajectory} className="clear-selection-btn">✕</button>
+          </div>
+        )}
         {trajectoryHistory.own.length + trajectoryHistory.opponent.length === 0 ? (
           <p className="muted">No hay puntos directos anotados aún.</p>
         ) : (
           <ul>
             {trajectoryHistory.own.map((item) => (
-              <li key={item.id}>
+              <li 
+                key={item.id}
+                className={selectedHistoryTrajectory?.id === item.id ? 'selected' : ''}
+                onClick={() => handleHistoryClick(item)}
+              >
                 <strong>{item.evaluation || '#'} </strong>Propio desde zona {item.zone}
               </li>
             ))}
             {trajectoryHistory.opponent.map((item) => (
-              <li key={item.id}>
+              <li 
+                key={item.id}
+                className={selectedHistoryTrajectory?.id === item.id ? 'selected' : ''}
+                onClick={() => handleHistoryClick(item)}
+              >
                 <strong>{item.evaluation || '#'} </strong>Contrario desde zona {item.zone}
               </li>
             ))}

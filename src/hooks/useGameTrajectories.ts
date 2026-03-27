@@ -14,6 +14,12 @@ export interface GameTrajectories {
 export interface GameTrajectoryHistory {
   own: SpikeVector[];
   opponent: SpikeVector[];
+  rallies: Array<{
+    id: string;
+    timestamp: number;
+    trajectories: SpikeVector[];
+    directPoint?: SpikeVector;
+  }>;
 }
 
 const emptyTrajectories: SpikeTrajectoriesByZone = {
