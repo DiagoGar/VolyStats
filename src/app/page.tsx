@@ -17,6 +17,7 @@ import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 
 export default function Page() {
+  const [isClient, setIsClient] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(() =>
     loadFromStorage<Match | null>(storageKeys.match, null)
   );
@@ -46,6 +47,10 @@ export default function Page() {
   } | null>(null);
   const { trajectories, history, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -319,6 +324,10 @@ export default function Page() {
   };
 
   // Si no hay partido configurado, mostrar setup
+  if (!isClient) {
+    return null;
+  }
+
   if (!currentMatch) {
     return (
       <MatchSetupFlow 
