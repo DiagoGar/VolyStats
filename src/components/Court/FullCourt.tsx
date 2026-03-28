@@ -57,8 +57,8 @@ export function FullCourt({
     // Limpiar canvas cada frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (showTrajectories) {
-      // Dibujar solo trayectorias del rally en curso (historial solo en panel de texto)
+    if (showTrajectories && !selectedHistoryRallyId) {
+      // Dibujar solo trayectorias del rally en curso cuando no hay historial seleccionado
       if (!filterTeam || filterTeam === "own") {
         drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation);
       }
@@ -72,7 +72,16 @@ export function FullCourt({
       const selectedRally = trajectoryHistory?.rallies?.find((rally) => rally.id === selectedHistoryRallyId);
 
       if (selectedRally) {
-        const rallyItems = selectedRally.trajectories;
+        const rallyItems = selectedRally.trajectories.filter((item) => {
+          // Aplicar filtros de equipo
+          if (filterTeam && item.team !== filterTeam) return false;
+          // Aplicar filtro de complejo
+          if (filterComplex && item.spike.complex !== filterComplex) return false;
+          // Aplicar filtro de evaluación
+          if (filterEvaluation && item.spike.evaluation !== filterEvaluation) return false;
+          return true;
+        });
+
         const ownMap: SpikeTrajectoriesByZone = { 1: [], 2: [], 3: [], 4: [], 6: [] };
         const opponentMap: SpikeTrajectoriesByZone = { 1: [], 2: [], 3: [], 4: [], 6: [] };
 
@@ -88,10 +97,19 @@ export function FullCourt({
         drawPersistentTrajectories(ctx, canvas, opponentMap, null, null, undefined, false, 1.0, 3);
 
         if (selectedRally.directPoint) {
-          const directPointMap = {
-            [selectedRally.directPoint.spike.zone]: [selectedRally.directPoint.spike],
-          };
-          drawPersistentTrajectories(ctx, canvas, directPointMap, null, null, "#FFD700", false, 1.0, 4);
+          // Aplicar filtros al punto directo también
+          const directPointItem = selectedRally.directPoint;
+          const shouldShowDirectPoint =
+            (!filterTeam || directPointItem.team === filterTeam) &&
+            (!filterComplex || directPointItem.spike.complex === filterComplex) &&
+            (!filterEvaluation || directPointItem.spike.evaluation === filterEvaluation);
+
+          if (shouldShowDirectPoint) {
+            const directPointMap = {
+              [selectedRally.directPoint.spike.zone]: [selectedRally.directPoint.spike],
+            };
+            drawPersistentTrajectories(ctx, canvas, directPointMap, null, null, "#FFD700", false, 1.0, 4);
+          }
         }
       }
     }
