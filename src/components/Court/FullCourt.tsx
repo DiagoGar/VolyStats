@@ -42,6 +42,7 @@ export function FullCourt({
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
   const [showTrajectories, setShowTrajectories] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
   const [selectedHistoryRallyId, setSelectedHistoryRallyId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const historyPoints = trajectoryHistory?.rallies?.filter((rally) => rally.directPoint) ?? [];
@@ -294,46 +295,55 @@ export function FullCourt({
       </div>
 
       {/* Leyenda de colores */}
-      <div className="trajectory-legend">
-        <h4>Leyenda de Colores</h4>
-        <div className="legend-items">
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
-            <span># Punto directo</span>
+      {showLegend && (
+        <div className="trajectory-legend">
+          <h4>Leyenda de Colores</h4>
+          <div className="legend-items">
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
+              <span># Punto directo</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#0066FF" }}></span>
+              <span>++ Muy positivo / K1</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#66CCFF" }}></span>
+              <span>+ Positivo</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#FFAA00" }}></span>
+              <span>/ Neutro / K4</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#FF6600" }}></span>
+              <span>- Negativo / K2</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#CC0000" }}></span>
+              <span>-- Error directo</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
+              <span>K3 Contraataque</span>
+            </div>
           </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#0066FF" }}></span>
-            <span>++ Muy positivo / K1</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#66CCFF" }}></span>
-            <span>+ Positivo</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#FFAA00" }}></span>
-            <span>/ Neutro / K4</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#FF6600" }}></span>
-            <span>- Negativo / K2</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#CC0000" }}></span>
-            <span>-- Error directo</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
-            <span>K3 Contraataque</span>
-          </div>
+          <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
         </div>
-        <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
-      </div>
+      )}
       <div className="trajectory-controls">
         <button
           className={`control-btn ${showTrajectories ? 'active' : ''}`}
           onClick={() => setShowTrajectories(!showTrajectories)}
         >
           {showTrajectories ? 'Ocultar' : 'Mostrar'} Trayectorias
+        </button>
+
+        <button
+          className={`control-btn ${showLegend ? 'active' : ''}`}
+          onClick={() => setShowLegend(!showLegend)}
+        >
+          {showLegend ? 'Ocultar' : 'Mostrar'} Leyenda
         </button>
 
         <div className="filter-group">
