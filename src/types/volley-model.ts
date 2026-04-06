@@ -370,6 +370,22 @@ export interface Match {
   startedAt?: number;
   endedAt?: number;
   createdAt: number;
+  substitutions?: SubstitutionEvent[];
+}
+
+// ============================================================================
+// EVENTO: SUSTITUCIÓN
+// ============================================================================
+export interface SubstitutionEvent {
+  id: string;
+  teamId: string;
+  outPlayerId: string;
+  inPlayerId: string;
+  position: CourtPosition;
+  setNumber: number;
+  pointNumber: number;
+  timestamp: number;
+  reason?: string;
 }
 
 // ============================================================================

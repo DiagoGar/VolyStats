@@ -12,7 +12,7 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
@@ -169,12 +169,8 @@ export default function Page() {
     setRoleAssignments(null);
   };
 
-  const rotateAssignments = (teamType: "home" | "away") => {
-    if (!roleAssignments) return;
-
-    const assignments = teamType === "home" ? roleAssignments.homeTeamAssignments : roleAssignments.awayTeamAssignments;
+  const rotateAssignmentsMap = (assignments: Record<CourtPosition, Player>) => {
     const rotated: Record<CourtPosition, Player> = {} as Record<CourtPosition, Player>;
-
     // Rotación en sentido horario: 1->6, 6->5, 5->4, 4->3, 3->2, 2->1
     rotated[1] = assignments[2];
     rotated[2] = assignments[3];
@@ -182,14 +178,103 @@ export default function Page() {
     rotated[4] = assignments[5];
     rotated[5] = assignments[6];
     rotated[6] = assignments[1];
+    return rotated;
+  };
 
-    setRoleAssignments((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        [teamType === "home" ? "homeTeamAssignments" : "awayTeamAssignments"]: rotated,
-      };
-    });
+  const buildSubstitutionEvent = (
+    teamType: "home" | "away",
+    outPlayer: Player,
+    inPlayer: Player,
+    position: CourtPosition,
+    reason: string
+  ): SubstitutionEvent | null => {
+    if (!currentMatch) return null;
+    return {
+      id: crypto.randomUUID(),
+      teamId: teamType === "home" ? currentMatch.homeTeam.id : currentMatch.awayTeam.id,
+      outPlayerId: outPlayer.id,
+      inPlayerId: inPlayer.id,
+      position,
+      setNumber: currentMatch.currentSet,
+      pointNumber: currentMatch.actions.length + 1,
+      timestamp: Date.now(),
+      reason,
+    };
+  };
+
+  const applyLiberoCentralRules = (
+    teamType: "home" | "away",
+    assignments: Record<CourtPosition, Player>,
+    isServing: boolean,
+    reason: string
+  ) => {
+    if (!currentMatch) return { assignments, events: [] as SubstitutionEvent[] };
+
+    const teamPlayers = teamType === "home" ? currentMatch.homeTeam.players : currentMatch.awayTeam.players;
+    const libero = teamPlayers.find((p) => p.primaryRole === "libero");
+    const onCourtIds = new Set(Object.values(assignments).map((p) => p.id));
+    const benchPlayers = teamPlayers.filter((p) => !onCourtIds.has(p.id));
+    const benchCentral = benchPlayers.find((p) => p.primaryRole === "central");
+    const benchNonLibero = benchPlayers.find((p) => p.primaryRole !== "libero");
+    const events: SubstitutionEvent[] = [];
+
+    const replaceAt = (
+      currentAssignments: Record<CourtPosition, Player>,
+      position: CourtPosition,
+      incoming: Player | undefined,
+      ruleReason: string
+    ) => {
+      if (!incoming) return currentAssignments;
+      const outgoing = currentAssignments[position];
+      if (!outgoing || outgoing.id === incoming.id) return currentAssignments;
+      const event = buildSubstitutionEvent(teamType, outgoing, incoming, position, ruleReason);
+      if (event) events.push(event);
+      return { ...currentAssignments, [position]: incoming };
+    };
+
+    let nextAssignments = { ...assignments };
+
+    // 1) El líbero nunca puede estar en zona delantera (2,3,4)
+    const frontRowPositions: CourtPosition[] = [2, 3, 4];
+    const liberoFront = frontRowPositions.find((pos) => nextAssignments[pos]?.primaryRole === "libero");
+    if (liberoFront) {
+      const incoming = benchCentral || benchNonLibero;
+      nextAssignments = replaceAt(nextAssignments, liberoFront, incoming, `${reason}:libero-front-row`);
+    }
+
+    const liberoPosition = ([1, 6, 5, 2, 3, 4] as CourtPosition[]).find(
+      (pos) => nextAssignments[pos]?.primaryRole === "libero"
+    );
+    const server = nextAssignments[1];
+    const serverIsCentral = server?.primaryRole === "central";
+    const liberoOnCourt = liberoPosition !== undefined;
+
+    // 2) Si el central está sacando, el líbero debe salir (pueden quedar 2 centrales)
+    if (isServing && serverIsCentral && liberoOnCourt) {
+      const incoming = benchCentral || benchNonLibero;
+      if (liberoPosition) {
+        nextAssignments = replaceAt(nextAssignments, liberoPosition, incoming, `${reason}:libero-out-for-central-serve`);
+      }
+      return { assignments: nextAssignments, events };
+    }
+
+    // 3) Si no se está sacando con central, el líbero debe reemplazar a un central en zaguero
+    if (libero && (!isServing || !serverIsCentral)) {
+      const backRowPositions: CourtPosition[] = isServing ? [6, 5] : [1, 6, 5];
+      const backRowCentral = backRowPositions.find(
+        (pos) => nextAssignments[pos]?.primaryRole === "central"
+      );
+      if (!liberoOnCourt && backRowCentral) {
+        nextAssignments = replaceAt(nextAssignments, backRowCentral, libero, `${reason}:libero-in-for-central`);
+      }
+      // Si el líbero está en 1 durante el saque (servidor), corregir
+      if (isServing && nextAssignments[1]?.primaryRole === "libero") {
+        const incoming = benchCentral || benchNonLibero;
+        nextAssignments = replaceAt(nextAssignments, 1, incoming, `${reason}:libero-cannot-serve`);
+      }
+    }
+
+    return { assignments: nextAssignments, events };
   };
 
   const getPlayerFromTeamByZone = (team: "own" | "opponent", zone: number): Player | undefined => {
@@ -353,8 +438,48 @@ export default function Page() {
     }
 
     // Rotar solo si el equipo que ganó recuperó el saque
-    if (serverChanges && winnerTeam) {
-      rotateAssignments(winnerTeam);
+    if (serverChanges && winnerTeam && roleAssignments) {
+      const currentHomeAssignments = roleAssignments.homeTeamAssignments;
+      const currentAwayAssignments = roleAssignments.awayTeamAssignments;
+
+      let nextHomeAssignments = currentHomeAssignments;
+      let nextAwayAssignments = currentAwayAssignments;
+      let substitutionEvents: SubstitutionEvent[] = [];
+
+      if (winnerTeam === "home") {
+        const rotatedHome = rotateAssignmentsMap(currentHomeAssignments);
+        const homeResult = applyLiberoCentralRules("home", rotatedHome, true, "rotation-serve");
+        nextHomeAssignments = homeResult.assignments;
+        substitutionEvents = substitutionEvents.concat(homeResult.events);
+
+        const awayResult = applyLiberoCentralRules("away", currentAwayAssignments, false, "loss-of-serve");
+        nextAwayAssignments = awayResult.assignments;
+        substitutionEvents = substitutionEvents.concat(awayResult.events);
+      } else {
+        const rotatedAway = rotateAssignmentsMap(currentAwayAssignments);
+        const awayResult = applyLiberoCentralRules("away", rotatedAway, true, "rotation-serve");
+        nextAwayAssignments = awayResult.assignments;
+        substitutionEvents = substitutionEvents.concat(awayResult.events);
+
+        const homeResult = applyLiberoCentralRules("home", currentHomeAssignments, false, "loss-of-serve");
+        nextHomeAssignments = homeResult.assignments;
+        substitutionEvents = substitutionEvents.concat(homeResult.events);
+      }
+
+      setRoleAssignments({
+        homeTeamAssignments: nextHomeAssignments,
+        awayTeamAssignments: nextAwayAssignments,
+      });
+
+      if (substitutionEvents.length > 0) {
+        setCurrentMatch((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            substitutions: [...(prev.substitutions || []), ...substitutionEvents],
+          };
+        });
+      }
     }
   };
 
@@ -376,6 +501,7 @@ export default function Page() {
     addTrajectory(team, zone as any, start, end, complex, playerRole, evaluation);
     addMatchAction({ team, zone, complex, playerRole, evaluation, spike: { start, end }, playerId });
   };
+
 
   // Si no hay partido configurado, mostrar setup
   if (!isClient) {
