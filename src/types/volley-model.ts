@@ -224,15 +224,54 @@ export type RotationSystem = '5-1' | '4-2' | '6-2' | '6-3';
  * El jugador que ejecuta la acción está en una posición específica.
  * Pero la acción se ejecuta DESDE una zona (que puede no coincidir con su posición).
  */
+export interface RotationSnapshot {
+  id: string;
+  teamId: string;
+  positions: Record<CourtPosition, string>; // position -> playerId
+  setterId: string;
+  rotationSystem: RotationSystem;
+  currentRotationNumber: number;
+  createdAt: number;
+}
+
+export interface ActionContext {
+  rotationId?: string;
+  rotationSnapshot?: RotationSnapshot; // Estado en el momento de la acción
+  position?: CourtPosition;
+  zone?: ActionZone;
+}
+
+export interface SpikeActionData {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  angle: number;
+}
+
+/**
+ * ActionTypeKey es la clasificación de alto nivel por "tipo de acción".
+ * Se deja opcional por compatibilidad y evolución progresiva.
+ */
+export type ActionTypeKey =
+  | 'spike'
+  | 'serve'
+  | 'receive'
+  | 'block'
+  | 'set'
+  | 'dig'
+  | 'freeball'
+  | 'other';
+
 export interface Action {
   id: string;
   
   // Quién
   playerId: string;
   playerRole: PlayerRole; // Rol del jugador cuando ejecutó la acción
+  teamId: string; // Equipo del jugador en el momento de la acción
   
   // Qué
   actionType: ActionType;
+  type?: ActionTypeKey; // Nuevo esquema (opcional por ahora)
   
   // Dónde
   zone: ActionZone; // Desde dónde se ejecutó la acción
@@ -240,12 +279,14 @@ export interface Action {
   
   // Contexto
   rotationId: string; // En qué rotación ocurrió
+  context?: ActionContext; // Contexto enriquecido (snapshot + posición + zona)
   
   // Resultado
   evaluation?: ActionEvaluation; // Cómo salió
   targetZone?: ActionZone; // Hacia dónde fue (si aplica)
   complex?: "K1" | "K2" | "K3" | "K4";
   team?: "home" | "away";
+  spike?: SpikeActionData; // Datos específicos cuando la acción es un spike/ataque
 
   // Metadatos
   timestamp: number; // Momento dentro del set
@@ -322,6 +363,7 @@ export interface Match {
   homeScore: number;
   awayScore: number;
   currentSet: number; // 1-5 (máximo)
+  servingTeam: 'home' | 'away'; // Equipo que tiene el saque actualmente
   
   // Metadatos
   status: 'setup' | 'in-progress' | 'finished';

@@ -25,7 +25,16 @@ interface FullCourtProps {
   } | null;
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
-  onSpikeDraw: (team: "own" | "opponent", zone: Zone, start: { x: number; y: number }, end: { x: number; y: number }, complex: Complex, playerRole?: PlayerRole, evaluation?: Evaluation) => void;
+  onSpikeDraw: (
+    team: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    complex: Complex,
+    playerId?: string,
+    playerRole?: PlayerRole,
+    evaluation?: Evaluation
+  ) => void;
 }
 
 export function FullCourt({
@@ -37,7 +46,14 @@ export function FullCourt({
   onToggleMode,
   onSpikeDraw,
 }: FullCourtProps) {
-  const [drawState, setDrawState] = useState<{ team: "own" | "opponent"; zone: Zone; complex: Complex | null; playerRole: PlayerRole | null; trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null } | null>(null);
+  const [drawState, setDrawState] = useState<{
+    team: "own" | "opponent";
+    zone: Zone;
+    complex?: Complex;
+    playerId?: string;
+    playerRole?: PlayerRole;
+    trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
+  } | null>(null);
   const [filterComplex, setFilterComplex] = useState<Complex | null>(null);
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
@@ -132,7 +148,7 @@ export function FullCourt({
   };
 
   const handleLongPress = (team: "own" | "opponent", zone: Zone) => {
-    setDrawState({ team, zone, complex: null, playerRole: null, trajectory: null });
+    setDrawState({ team, zone, complex: undefined, playerId: undefined, playerRole: undefined, trajectory: null });
   };
 
   const handleAttack = (team: "own" | "opponent", zone: Zone) => {
@@ -141,13 +157,13 @@ export function FullCourt({
 
   const handleComplexSelect = (complex: Complex) => {
     if (drawState) {
-      setDrawState({ ...drawState, complex, playerRole: null });
+      setDrawState({ ...drawState, complex, playerId: undefined, playerRole: undefined });
     }
   };
 
-  const handlePlayerRoleSelect = (playerRole: PlayerRole) => {
+  const handlePlayerSelect = (player: Player) => {
     if (drawState) {
-      setDrawState({ ...drawState, playerRole });
+      setDrawState({ ...drawState, playerId: player.id, playerRole: player.primaryRole });
     }
   };
 
@@ -172,7 +188,16 @@ export function FullCourt({
 
   const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
     if (drawState && drawState.trajectory) {
-      onSpikeDraw(drawState.team, drawState.zone, drawState.trajectory.start, drawState.trajectory.end, drawState.complex!, drawState.playerRole || undefined, evaluation);
+      onSpikeDraw(
+        drawState.team,
+        drawState.zone,
+        drawState.trajectory.start,
+        drawState.trajectory.end,
+        drawState.complex!,
+        drawState.playerId || undefined,
+        drawState.playerRole || undefined,
+        evaluation
+      );
       setDrawState(null);
     }
   };
@@ -438,7 +463,7 @@ export function FullCourt({
       </div>
 
       {/* Modales */}
-      {drawState !== null && drawState.complex === null && (
+      {drawState !== null && !drawState.complex && (
         <div className="complex-selector-overlay">
           <div className="complex-selector">
             <h3>Selecciona el Complejo de Juego</h3>
@@ -452,24 +477,31 @@ export function FullCourt({
           </div>
         </div>
       )}
-      {drawState !== null && drawState.complex !== null && drawState.playerRole === null && (
+      {drawState !== null && drawState.complex && !drawState.playerId && (
         <div className="role-selector-overlay">
           <div className="role-selector">
-            <h3>Selecciona el Rol del Jugador</h3>
+            <h3>Selecciona el Jugador</h3>
             <div className="role-buttons">
-              <button onClick={() => handlePlayerRoleSelect('opuesto')}>Opuesto</button>
-              <button onClick={() => handlePlayerRoleSelect('punta')}>Punta</button>
-              <button onClick={() => handlePlayerRoleSelect('central')}>Central</button>
-              <button onClick={() => handlePlayerRoleSelect('armador')}>Armador</button>
-              <button onClick={() => handlePlayerRoleSelect('libero')}>Líbero</button>
-              <button onClick={() => handlePlayerRoleSelect('zaguero')}>Zaguero</button>
+              {(roleAssignments
+                ? Object.values(
+                    drawState.team === "own"
+                      ? roleAssignments.homeTeamAssignments
+                      : roleAssignments.awayTeamAssignments
+                  )
+                : []
+              )
+                .filter((p, index, arr) => arr.findIndex((x) => x.id === p.id) === index)
+                .map((player) => (
+                  <button key={player.id} onClick={() => handlePlayerSelect(player)}>
+                    {player.name} ({player.primaryRole})
+                  </button>
+                ))}
             </div>
-            <button className="skip-btn" onClick={() => handlePlayerRoleSelect(undefined as any)}>Omitir</button>
             <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
           </div>
         </div>
       )}
-      {drawState !== null && drawState.complex !== null && drawState.playerRole !== null && !drawState.trajectory && (
+      {drawState !== null && drawState.complex && drawState.playerId && !drawState.trajectory && (
         <SpikeDraw
           team={drawState.team}
           zone={drawState.zone}
@@ -502,3 +534,4 @@ export function FullCourt({
     </div>
   );
 }
+

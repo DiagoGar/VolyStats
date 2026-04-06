@@ -12,9 +12,10 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
+import { calculateAngle } from "@/utils/spikeMath";
 
 export default function Page() {
   const [isClient, setIsClient] = useState(false);
@@ -174,13 +175,13 @@ export default function Page() {
     const assignments = teamType === "home" ? roleAssignments.homeTeamAssignments : roleAssignments.awayTeamAssignments;
     const rotated: Record<CourtPosition, Player> = {} as Record<CourtPosition, Player>;
 
-    // Rotación: 1->2, 2->3, 3->4, 4->5, 5->6, 6->1
-    rotated[1] = assignments[6];
-    rotated[2] = assignments[1];
-    rotated[3] = assignments[2];
-    rotated[4] = assignments[3];
-    rotated[5] = assignments[4];
-    rotated[6] = assignments[5];
+    // Rotación en sentido horario: 1->6, 6->5, 5->4, 4->3, 3->2, 2->1
+    rotated[1] = assignments[2];
+    rotated[2] = assignments[3];
+    rotated[3] = assignments[4];
+    rotated[4] = assignments[5];
+    rotated[5] = assignments[6];
+    rotated[6] = assignments[1];
 
     setRoleAssignments((prev) => {
       if (!prev) return null;
@@ -203,31 +204,72 @@ export default function Page() {
     complex,
     playerRole,
     evaluation,
+    spike,
+    playerId,
   }: {
     team: "own" | "opponent";
     zone: number;
     complex?: Complex;
     playerRole?: PlayerRole;
     evaluation?: ActionEvaluation;
+    spike?: { start: { x: number; y: number }; end: { x: number; y: number } };
+    playerId?: string;
   }) => {
     if (!currentMatch) return;
 
-    const player = getPlayerFromTeamByZone(team, zone);
+    const player = playerId
+      ? [...currentMatch.homeTeam.players, ...currentMatch.awayTeam.players].find((p) => p.id === playerId)
+      : getPlayerFromTeamByZone(team, zone);
     const position = zone as CourtPosition;
-    const rotationId = team === "own" ? currentMatch.currentHomeRotation?.id : currentMatch.currentAwayRotation?.id;
+    const rotation = team === "own" ? currentMatch.currentHomeRotation : currentMatch.currentAwayRotation;
+    const rotationId = rotation?.id;
+
+    const rotationSnapshot: RotationSnapshot | undefined = rotation
+      ? {
+          id: rotation.id,
+          teamId: rotation.teamId,
+          positions: {
+            1: rotation.positions[1]?.id ?? "",
+            2: rotation.positions[2]?.id ?? "",
+            3: rotation.positions[3]?.id ?? "",
+            4: rotation.positions[4]?.id ?? "",
+            5: rotation.positions[5]?.id ?? "",
+            6: rotation.positions[6]?.id ?? "",
+          },
+          setterId: rotation.setter?.id ?? "",
+          rotationSystem: rotation.rotationSystem,
+          currentRotationNumber: rotation.currentRotationNumber,
+          createdAt: rotation.updatedAt ?? rotation.createdAt,
+        }
+      : undefined;
 
     const action: Action = {
       id: crypto.randomUUID(),
       playerId: player?.id || "",
       playerRole: playerRole || (player?.primaryRole ?? "zaguero"),
+      teamId: team === "own" ? currentMatch.homeTeam.id : currentMatch.awayTeam.id,
       actionType: "ataque",
+      type: spike ? "spike" : undefined,
       zone: zone as any,
       position: position,
       rotationId: rotationId || "",
+      context: {
+        rotationId: rotationId || undefined,
+        rotationSnapshot,
+        position,
+        zone: zone as any,
+      },
       evaluation,
       targetZone: undefined,
       complex,
       team: team === "own" ? "home" : "away",
+      spike: spike
+        ? {
+            start: spike.start,
+            end: spike.end,
+            angle: calculateAngle(spike.start, spike.end),
+          }
+        : undefined,
       timestamp: Date.now(),
       setNumber: currentMatch.currentSet,
       pointNumber: currentMatch.actions.length + 1,
@@ -256,6 +298,15 @@ export default function Page() {
       if (delta < 0) homeScore += Math.abs(delta);
     }
 
+    const currentServer = currentMatch.servingTeam ?? "home";
+    const winnerTeam: "home" | "away" | null = delta === 0
+      ? null
+      : team === "own"
+        ? (delta > 0 ? "home" : "away")
+        : (delta > 0 ? "away" : "home");
+
+    const serverChanges = winnerTeam !== null && winnerTeam !== currentServer;
+
     const setWinThreshold = 25;
     const setLead = 2;
     const hasSetWinner =
@@ -282,6 +333,7 @@ export default function Page() {
           currentAwayRotation: initialAwayRotation,
           homeRotations: [...prev.homeRotations, initialHomeRotation],
           awayRotations: [...prev.awayRotations, initialAwayRotation],
+          servingTeam: winnerTeam ?? prev.servingTeam,
           status: nextSet > 5 ? "finished" : "in-progress",
         };
       }
@@ -291,6 +343,7 @@ export default function Page() {
         actions: [...prev.actions, action],
         homeScore,
         awayScore,
+        servingTeam: serverChanges ? (winnerTeam as "home" | "away") : prev.servingTeam,
       };
     });
 
@@ -299,9 +352,9 @@ export default function Page() {
       setRoleAssignments(initialRoleAssignments);
     }
 
-    // Rotar si se ganó un punto
-    if (delta > 0) {
-      rotateAssignments(team === "own" ? "home" : "away");
+    // Rotar solo si el equipo que ganó recuperó el saque
+    if (serverChanges && winnerTeam) {
+      rotateAssignments(winnerTeam);
     }
   };
 
@@ -316,11 +369,12 @@ export default function Page() {
     start: { x: number; y: number },
     end: { x: number; y: number },
     complex: Complex,
+    playerId?: string,
     playerRole?: PlayerRole,
     evaluation?: ActionEvaluation
   ) => {
     addTrajectory(team, zone as any, start, end, complex, playerRole, evaluation);
-    addMatchAction({ team, zone, complex, playerRole, evaluation });
+    addMatchAction({ team, zone, complex, playerRole, evaluation, spike: { start, end }, playerId });
   };
 
   // Si no hay partido configurado, mostrar setup
@@ -391,14 +445,40 @@ export default function Page() {
         borderRadius: "8px",
         margin: "0 10px 15px",
       }}>
-        <div style={{ fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
           {currentMatch.homeTeam.name}: {currentMatch.homeScore}
+          {currentMatch.servingTeam === "home" && (
+            <span style={{
+              padding: "2px 8px",
+              borderRadius: "999px",
+              background: "#fff2e8",
+              border: "1px solid #ffbb96",
+              color: "#d46b08",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}>
+              saque
+            </span>
+          )}
         </div>
         <div style={{ fontSize: "14px", color: "#33475b" }}>
           Set {currentMatch.currentSet}
         </div>
-        <div style={{ fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "bold", fontSize: "16px", color: "#33475b" }}>
           {currentMatch.awayTeam.name}: {currentMatch.awayScore}
+          {currentMatch.servingTeam === "away" && (
+            <span style={{
+              padding: "2px 8px",
+              borderRadius: "999px",
+              background: "#fff2e8",
+              border: "1px solid #ffbb96",
+              color: "#d46b08",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}>
+              saque
+            </span>
+          )}
         </div>
       </div>
 
@@ -426,7 +506,7 @@ export default function Page() {
         onSpikeDraw={handleSpikeDraw}
       />
 
-      <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} />
+      <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} match={currentMatch} />
 
       <DataExportImport
         trajectories={trajectories}

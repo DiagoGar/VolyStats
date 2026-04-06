@@ -23,6 +23,7 @@ interface Props {
     start: { x: number; y: number },
     end: { x: number; y: number },
     complex: Complex,
+    playerId?: string,
     playerRole?: PlayerRole,
     evaluation?: Evaluation
   ) => void;

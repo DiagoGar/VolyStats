@@ -28,6 +28,7 @@ interface UseMatchSetupReturn {
   selectTeam: (teamId: string, side: "home" | "away") => void;
   startCreatingTeam: (side: "home" | "away") => void;
   updateEditingTeam: (team: Team) => void;
+  setServingTeam: (team: "home" | "away") => void;
   confirmMatchSetup: () => Match;
   goBack: () => void;
 }
@@ -40,6 +41,7 @@ export function useMatchSetup(): UseMatchSetupReturn {
   const [selectedAwayTeam, setSelectedAwayTeam] = useState<Team | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingSide, setEditingSide] = useState<"home" | "away" | null>(null);
+  const [servingTeam, setServingTeam] = useState<"home" | "away">("home");
 
   const selectTeam = (teamId: string, side: "home" | "away") => {
     const team = teams.find((t) => t.id === teamId);
@@ -101,6 +103,7 @@ export function useMatchSetup(): UseMatchSetupReturn {
       homeScore: 0,
       awayScore: 0,
       currentSet: 1,
+      servingTeam,
       status: "setup",
       createdAt: Date.now(),
     };
@@ -126,6 +129,7 @@ export function useMatchSetup(): UseMatchSetupReturn {
     selectTeam,
     startCreatingTeam,
     updateEditingTeam,
+    setServingTeam,
     confirmMatchSetup,
     goBack,
   };

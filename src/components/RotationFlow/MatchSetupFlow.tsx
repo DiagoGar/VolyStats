@@ -32,6 +32,7 @@ export function MatchSetupFlow({
   const [editingSide, setEditingSide] = useState<"home" | "away" | null>(null);
   const [editingTeamData, setEditingTeamData] = useState<Team | null>(null);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [servingTeam, setServingTeam] = useState<"home" | "away">("home");
 
   // Cargar equipos disponibles desde storage
   const loadTeams = () => {
@@ -133,6 +134,7 @@ export function MatchSetupFlow({
       homeScore: 0,
       awayScore: 0,
       currentSet: 1,
+      servingTeam,
       status: "setup",
       createdAt: Date.now(),
     };
@@ -370,6 +372,47 @@ export function MatchSetupFlow({
               </div>
             </div>
           </div>
+
+          <div style={{
+            background: "#fff7e6",
+            border: "1px solid #ffd591",
+            borderRadius: "8px",
+            padding: "12px",
+            marginBottom: "16px",
+          }}>
+            <p style={{ margin: 0, marginBottom: "8px", color: "#8c6d1f" }}>
+              ¿Quién empieza sacando?
+            </p>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => setServingTeam("home")}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: servingTeam === "home" ? "2px solid #fa8c16" : "1px solid #ddd",
+                  background: servingTeam === "home" ? "#fff7e6" : "#fff",
+                  cursor: "pointer",
+                  flex: 1,
+                }}
+              >
+                {homeTeam.name}
+              </button>
+              <button
+                onClick={() => setServingTeam("away")}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: servingTeam === "away" ? "2px solid #fa8c16" : "1px solid #ddd",
+                  background: servingTeam === "away" ? "#fff7e6" : "#fff",
+                  cursor: "pointer",
+                  flex: 1,
+                }}
+              >
+                {awayTeam.name}
+              </button>
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             <button
               onClick={handleBack}

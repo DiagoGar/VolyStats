@@ -125,9 +125,15 @@ export function isValidAction(
     return { valid: false, errors };
   }
 
-  // Verificar que la zona es válida
-  if (!isValidActionZone(action.zone)) {
-    errors.push(`Zona inválida: ${action.zone}`);
+  // Verificar que el equipo existe
+  if (!action.teamId) {
+    errors.push('Acción debe tener teamId');
+  }
+
+  // Verificar que la zona es válida (admite zona directa o en contexto)
+  const zone = action.zone ?? action.context?.zone;
+  if (!isValidActionZone(zone)) {
+    errors.push(`Zona inválida: ${zone}`);
   }
 
   // Verificar que el jugador existe en alguno de los equipos
@@ -143,8 +149,9 @@ export function isValidAction(
   }
 
   // Verificar que la posición (si existe) es válida
-  if (action.position !== undefined && !isValidCourtPosition(action.position)) {
-    errors.push(`Posición inválida: ${action.position}`);
+  const position = action.position ?? action.context?.position;
+  if (position !== undefined && !isValidCourtPosition(position)) {
+    errors.push(`Posición inválida: ${position}`);
   }
 
   // Verificar que el rol está definido

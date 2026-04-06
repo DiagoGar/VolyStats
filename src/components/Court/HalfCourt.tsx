@@ -20,6 +20,7 @@ interface HalfCourtProps {
     start: { x: number; y: number },
     end: { x: number; y: number },
     complex: Complex,
+    playerId?: string,
     playerRole?: PlayerRole,
     evaluation?: Evaluation
   ) => void;
@@ -102,6 +103,7 @@ export function HalfCourt({
         drawState.trajectory.start,
         drawState.trajectory.end,
         drawState.complex!,
+        undefined,
         drawState.playerRole || undefined,
         evaluation
       );

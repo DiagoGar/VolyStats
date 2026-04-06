@@ -1,26 +1,41 @@
 "use client";
 
-import type { Action } from "@/types/volley-model";
+import type { Action, Match } from "@/types/volley-model";
 import { useMemo, useState } from "react";
 
 interface ActionLogProps {
   actions: Action[];
+  match?: Match | null;
 }
 
 const EVALUATION_OPTIONS: Array<Action["evaluation"]> = ["#", "++", "+", "/", "-", "--"];
 const COMPLEX_OPTIONS = ["K1", "K2", "K3", "K4"] as const;
 
-export function ActionLog({ actions }: ActionLogProps) {
+export function ActionLog({ actions, match }: ActionLogProps) {
   const [filterComplex, setFilterComplex] = useState<string>("");
   const [filterEvaluation, setFilterEvaluation] = useState<string>("");
+  const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | "all">("own");
+
+  const getTeamLabel = (action: Action) => {
+    if (!match) return action.team || "Equipo";
+    if (action.teamId === match.homeTeam.id) return "Local";
+    if (action.teamId === match.awayTeam.id) return "Visitante";
+    return "Equipo";
+  };
 
   const filteredActions = useMemo(() => {
     return actions.filter((action) => {
       const p1 = !filterComplex || action.complex === filterComplex;
       const p2 = !filterEvaluation || action.evaluation === filterEvaluation;
-      return p1 && p2;
+      const p3 =
+        filterTeam === "all" ||
+        (!match && action.team === (filterTeam === "own" ? "home" : "away")) ||
+        (match &&
+          ((filterTeam === "own" && action.teamId === match.homeTeam.id) ||
+            (filterTeam === "opponent" && action.teamId === match.awayTeam.id)));
+      return p1 && p2 && p3;
     });
-  }, [actions, filterComplex, filterEvaluation]);
+  }, [actions, filterComplex, filterEvaluation, filterTeam, match]);
 
   const totalByComplex = useMemo(() => {
     const counter: Record<string, number> = { K1: 0, K2: 0, K3: 0, K4: 0 };
@@ -47,6 +62,16 @@ export function ActionLog({ actions }: ActionLogProps) {
       <h2>Historial de Acciones</h2>
 
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+        <select
+          value={match ? filterTeam : "own"}
+          onChange={(e) => setFilterTeam(e.target.value as "own" | "opponent" | "all")}
+          disabled={!match && !actions.some((action) => action.team)}
+        >
+          <option value="all">Ambos equipos</option>
+          <option value="own">Equipo propio</option>
+          <option value="opponent">Equipo rival</option>
+        </select>
+
         <select value={filterComplex} onChange={(e) => setFilterComplex(e.target.value)}>
           <option value="">Todos los complejos</option>
           {COMPLEX_OPTIONS.map((c) => (
@@ -84,11 +109,12 @@ export function ActionLog({ actions }: ActionLogProps) {
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {filteredActions.map((action, idx) => (
-              <li key={action.id} style={{ padding: "8px 10px", borderBottom: "1px solid #f2f2f2", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px" }}>
+              <li key={action.id} style={{ padding: "8px 10px", borderBottom: "1px solid #f2f2f2", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: "8px" }}>
                 <span><strong>#{idx + 1}</strong></span>
-                <span>{action.team} / {action.actionType}</span>
+                <span>{getTeamLabel(action)} / {action.actionType}</span>
                 <span>Zona {action.zone}{action.position ? ` (pos ${action.position})` : ''}</span>
-                <span>{action.complex || '-'} | {action.evaluation || '-'}</span>
+                <span>Complejo {action.complex || '-'}</span>
+                <span>Eval {action.evaluation || '-'}</span>
               </li>
             ))}
           </ul>
