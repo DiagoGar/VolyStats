@@ -261,6 +261,9 @@ export type ActionTypeKey =
   | 'freeball'
   | 'other';
 
+export type ServeType = 'flotado' | 'salto';
+export type ServeResult = 'en_juego' | 'error' | 'ace';
+
 export interface Action {
   id: string;
   
@@ -287,6 +290,9 @@ export interface Action {
   complex?: "K1" | "K2" | "K3" | "K4";
   team?: "home" | "away";
   spike?: SpikeActionData; // Datos específicos cuando la acción es un spike/ataque
+  serve?: SpikeActionData;
+  serveType?: ServeType;
+  serveResult?: ServeResult;
 
   // Metadatos
   timestamp: number; // Momento dentro del set
@@ -364,6 +370,7 @@ export interface Match {
   awayScore: number;
   currentSet: number; // 1-5 (máximo)
   servingTeam: 'home' | 'away'; // Equipo que tiene el saque actualmente
+  rallyStatus: 'waiting_serve' | 'in_play';
   
   // Metadatos
   status: 'setup' | 'in-progress' | 'finished';

@@ -12,7 +12,7 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
@@ -161,6 +161,7 @@ export default function Page() {
         homeScore: 0,
         awayScore: 0,
         status: "in-progress",
+        rallyStatus: prev.rallyStatus ?? "waiting_serve",
       };
     });
   };
@@ -291,6 +292,11 @@ export default function Page() {
     evaluation,
     spike,
     playerId,
+    actionType = "ataque",
+    actionKind,
+    serveType,
+    serveResult,
+    serve,
   }: {
     team: "own" | "opponent";
     zone: number;
@@ -299,6 +305,11 @@ export default function Page() {
     evaluation?: ActionEvaluation;
     spike?: { start: { x: number; y: number }; end: { x: number; y: number } };
     playerId?: string;
+    actionType?: ActionType;
+    actionKind?: Action["type"];
+    serveType?: ServeType;
+    serveResult?: ServeResult;
+    serve?: { start: { x: number; y: number }; end: { x: number; y: number } };
   }) => {
     if (!currentMatch) return;
 
@@ -333,8 +344,8 @@ export default function Page() {
       playerId: player?.id || "",
       playerRole: playerRole || (player?.primaryRole ?? "zaguero"),
       teamId: team === "own" ? currentMatch.homeTeam.id : currentMatch.awayTeam.id,
-      actionType: "ataque",
-      type: spike ? "spike" : undefined,
+      actionType,
+      type: actionKind ?? (spike ? "spike" : undefined),
       zone: zone as any,
       position: position,
       rotationId: rotationId || "",
@@ -355,6 +366,15 @@ export default function Page() {
             angle: calculateAngle(spike.start, spike.end),
           }
         : undefined,
+      serve: serve
+        ? {
+            start: serve.start,
+            end: serve.end,
+            angle: calculateAngle(serve.start, serve.end),
+          }
+        : undefined,
+      serveType,
+      serveResult,
       timestamp: Date.now(),
       setNumber: currentMatch.currentSet,
       pointNumber: currentMatch.actions.length + 1,
@@ -369,7 +389,17 @@ export default function Page() {
       "--": -1,
     };
 
-    const delta = evaluation ? evaluationPoints[evaluation] : 0;
+    const serveEvaluation: ActionEvaluation | undefined = serveResult
+      ? serveResult === "ace"
+        ? "#"
+        : serveResult === "error"
+          ? "--"
+          : undefined
+      : undefined;
+
+    const scoringEvaluation = evaluation ?? serveEvaluation;
+    const isTerminalEvaluation = scoringEvaluation === "#" || scoringEvaluation === "--";
+    const delta = isTerminalEvaluation ? evaluationPoints[scoringEvaluation] : 0;
 
     // Calcular nuevos scores
     let homeScore = currentMatch.homeScore;
@@ -402,6 +432,15 @@ export default function Page() {
     const initialHomeRotation = currentMatch.homeRotations[0] || currentMatch.currentHomeRotation;
     const initialAwayRotation = currentMatch.awayRotations[0] || currentMatch.currentAwayRotation;
 
+    const nextRallyStatus =
+      actionType === "saque"
+        ? serveResult === "en_juego"
+          ? "in_play"
+          : "waiting_serve"
+        : isTerminalEvaluation
+          ? "waiting_serve"
+          : "in_play";
+
     setCurrentMatch((prev) => {
       if (!prev) return prev;
 
@@ -419,6 +458,7 @@ export default function Page() {
           homeRotations: [...prev.homeRotations, initialHomeRotation],
           awayRotations: [...prev.awayRotations, initialAwayRotation],
           servingTeam: winnerTeam ?? prev.servingTeam,
+          rallyStatus: "waiting_serve",
           status: nextSet > 5 ? "finished" : "in-progress",
         };
       }
@@ -429,6 +469,7 @@ export default function Page() {
         homeScore,
         awayScore,
         servingTeam: serverChanges ? (winnerTeam as "home" | "away") : prev.servingTeam,
+        rallyStatus: nextRallyStatus,
       };
     });
 
@@ -484,6 +525,7 @@ export default function Page() {
   };
 
   const handleAttack = (team: "own" | "opponent", zone: number) => {
+    if (currentMatch?.rallyStatus !== "in_play") return;
     addAttack(team, zone as any);
     addMatchAction({ team, zone, evaluation: undefined });
   };
@@ -498,8 +540,27 @@ export default function Page() {
     playerRole?: PlayerRole,
     evaluation?: ActionEvaluation
   ) => {
+    if (currentMatch?.rallyStatus !== "in_play") return;
     addTrajectory(team, zone as any, start, end, complex, playerRole, evaluation);
     addMatchAction({ team, zone, complex, playerRole, evaluation, spike: { start, end }, playerId });
+  };
+
+  const handleServe = (
+    team: "own" | "opponent",
+    serveType: ServeType,
+    serveResult: ServeResult,
+    serve: { start: { x: number; y: number }; end: { x: number; y: number } }
+  ) => {
+    if (currentMatch?.rallyStatus !== "waiting_serve") return;
+    addMatchAction({
+      team,
+      zone: 1,
+      actionType: "saque",
+      actionKind: "serve",
+      serveType,
+      serveResult,
+      serve,
+    });
   };
 
 
@@ -613,6 +674,9 @@ export default function Page() {
         trajectories={trajectories}
         trajectoryHistory={history}
         roleAssignments={roleAssignments}
+        servingTeam={currentMatch.servingTeam}
+        teamNames={{ home: currentMatch.homeTeam.name, away: currentMatch.awayTeam.name }}
+        rallyStatus={currentMatch.rallyStatus ?? "waiting_serve"}
         onAttack={handleAttack}
         onToggleMode={toggleMode}
         onReset={() => {
@@ -626,9 +690,11 @@ export default function Page() {
               homeScore: 0,
               awayScore: 0,
               currentSet: 1,
+              rallyStatus: "waiting_serve",
             };
           });
         }}
+        onServe={handleServe}
         onSpikeDraw={handleSpikeDraw}
       />
 

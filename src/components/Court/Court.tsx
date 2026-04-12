@@ -3,7 +3,7 @@ import type { Zone } from "@/types/stats";
 import type { GameStats } from "@/hooks/useGameStats";
 import type { GameTrajectories, GameTrajectoryHistory } from "@/hooks/useGameTrajectories";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
-import type { CourtPosition, Player } from "@/types/volley-model";
+import type { CourtPosition, Player, ServeResult, ServeType } from "@/types/volley-model";
 import "./court.css";
 
 interface Props {
@@ -14,9 +14,21 @@ interface Props {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   } | null;
+  servingTeam: "home" | "away";
+  teamNames: {
+    home: string;
+    away: string;
+  };
+  rallyStatus: "waiting_serve" | "in_play";
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onReset: () => void;
+  onServe: (
+    team: "own" | "opponent",
+    serveType: ServeType,
+    serveResult: ServeResult,
+    serve: { start: { x: number; y: number }; end: { x: number; y: number } }
+  ) => void;
   onSpikeDraw: (
     team: "own" | "opponent",
     zone: Zone,
@@ -34,9 +46,13 @@ export function Court({
   trajectories,
   trajectoryHistory,
   roleAssignments,
+  servingTeam,
+  teamNames,
+  rallyStatus,
   onAttack,
   onToggleMode,
   onReset,
+  onServe,
   onSpikeDraw,
 }: Props) {
   return (
@@ -47,8 +63,12 @@ export function Court({
           trajectories={trajectories}
           trajectoryHistory={trajectoryHistory}
           roleAssignments={roleAssignments}
+          servingTeam={servingTeam}
+          teamNames={teamNames}
+          rallyStatus={rallyStatus}
           onAttack={onAttack}
           onToggleMode={onToggleMode}
+          onServe={onServe}
           onSpikeDraw={onSpikeDraw}
         />
       </div>

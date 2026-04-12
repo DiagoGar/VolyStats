@@ -3,11 +3,12 @@ import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
 import { averageAngle, angularDeviation } from "@/utils/spikeMath";
 import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
+import { ServeDraw } from "../ServeDraw/ServeDraw";
 import type { GameTrajectoryHistory, SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import { drawPersistentTrajectories } from "@/utils/canvasUtils";
-import type { CourtPosition, Player } from "@/types/volley-model";
+import type { CourtPosition, Player, ServeResult, ServeType } from "@/types/volley-model";
 
 interface FullCourtProps {
   stats: {
@@ -23,8 +24,20 @@ interface FullCourtProps {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   } | null;
+  servingTeam: "home" | "away";
+  teamNames: {
+    home: string;
+    away: string;
+  };
+  rallyStatus: "waiting_serve" | "in_play";
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
+  onServe: (
+    team: "own" | "opponent",
+    serveType: ServeType,
+    serveResult: ServeResult,
+    serve: { start: { x: number; y: number }; end: { x: number; y: number } }
+  ) => void;
   onSpikeDraw: (
     team: "own" | "opponent",
     zone: Zone,
@@ -42,8 +55,12 @@ export function FullCourt({
   trajectories,
   trajectoryHistory,
   roleAssignments,
+  servingTeam,
+  teamNames,
+  rallyStatus,
   onAttack,
   onToggleMode,
+  onServe,
   onSpikeDraw,
 }: FullCourtProps) {
   const [drawState, setDrawState] = useState<{
@@ -60,8 +77,13 @@ export function FullCourt({
   const [showTrajectories, setShowTrajectories] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
   const [selectedHistoryRallyId, setSelectedHistoryRallyId] = useState<string | null>(null);
+  const [serveType, setServeType] = useState<ServeType>("flotado");
+  const [serveTrajectory, setServeTrajectory] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const [serveDrawOpen, setServeDrawOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const historyPoints = trajectoryHistory?.rallies?.filter((rally) => rally.directPoint) ?? [];
+  const servingSide: "own" | "opponent" = servingTeam === "home" ? "own" : "opponent";
+  const servingTeamLabel = servingTeam === "home" ? teamNames.home : teamNames.away;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -155,6 +177,12 @@ export function FullCourt({
     onAttack(team, zone);
   };
 
+  const handleServeResult = (serveResult: ServeResult) => {
+    if (!serveTrajectory) return;
+    onServe(servingSide, serveType, serveResult, serveTrajectory);
+    setServeTrajectory(null);
+  };
+
   const handleComplexSelect = (complex: Complex) => {
     if (drawState) {
       setDrawState({ ...drawState, complex, playerId: undefined, playerRole: undefined });
@@ -206,6 +234,29 @@ export function FullCourt({
     setDrawState(null);
   };
 
+  const handleServeDrawn = (
+    team: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
+    setServeTrajectory({ start, end });
+    setServeDrawOpen(false);
+  };
+
+  useEffect(() => {
+    if (rallyStatus === "waiting_serve") {
+      if (!serveTrajectory) {
+        setServeDrawOpen(true);
+      }
+      return;
+    }
+    setServeTrajectory(null);
+    setServeDrawOpen(false);
+  }, [rallyStatus, serveTrajectory]);
+
+  const serverPlayer = getPlayerAtZone(servingSide, 1);
+
   return (
     <div className="full-court">
       {/* Encabezado */}
@@ -229,8 +280,82 @@ export function FullCourt({
         </div>
       </div>
 
+      {rallyStatus === "waiting_serve" && (
+        <div className="serve-panel">
+          <div className="serve-title">Saque - {servingTeamLabel}</div>
+          <div className="serve-row">
+            <span className="serve-label">Jugador:</span>
+            <span className="serve-value">
+              {serverPlayer?.name || "Sin asignar"} (auto)
+            </span>
+          </div>
+          <div className="serve-row">
+            <span className="serve-label">Tipo:</span>
+            <div className="serve-options">
+              <button
+                type="button"
+                className={`serve-option ${serveType === "flotado" ? "active" : ""}`}
+                onClick={() => setServeType("flotado")}
+              >
+                Flotado
+              </button>
+              <button
+                type="button"
+                className={`serve-option ${serveType === "salto" ? "active" : ""}`}
+                onClick={() => setServeType("salto")}
+              >
+                Salto
+              </button>
+            </div>
+          </div>
+          <div className="serve-row">
+            <span className="serve-label">Trayectoria:</span>
+            <div className="serve-options">
+              <button type="button" className="serve-option" onClick={() => setServeDrawOpen(true)}>
+                {serveTrajectory ? "Redibujar" : "Dibujar"}
+              </button>
+              {serveTrajectory && <span className="serve-helper">Lista</span>}
+            </div>
+          </div>
+          <div className="serve-row">
+            <span className="serve-label">Resultado:</span>
+            <div className="serve-options">
+              <button
+                type="button"
+                className="serve-result in-play"
+                onClick={() => handleServeResult("en_juego")}
+                disabled={!serveTrajectory}
+              >
+                En juego
+              </button>
+              <button
+                type="button"
+                className="serve-result error"
+                onClick={() => handleServeResult("error")}
+                disabled={!serveTrajectory}
+              >
+                Error
+              </button>
+              <button
+                type="button"
+                className="serve-result ace"
+                onClick={() => handleServeResult("ace")}
+                disabled={!serveTrajectory}
+              >
+                Ace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cancha completa */}
-      <div className="court">
+      <div className={`court ${rallyStatus === "waiting_serve" ? "court--waiting-serve" : ""}`}>
+        {rallyStatus === "waiting_serve" && (
+          <div className="court-waiting-overlay" aria-live="polite">
+            Esperando saque
+          </div>
+        )}
         {/* Equipo contrario (arriba) */}
         <div className="team-section opponent-section">
           <div className="team-label">Equipo Contrario</div>
@@ -530,6 +655,14 @@ export function FullCourt({
             <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
           </div>
         </div>
+      )}
+      {serveDrawOpen && rallyStatus === "waiting_serve" && (
+        <ServeDraw
+          team={servingSide}
+          zone={1}
+          onClose={() => setServeDrawOpen(false)}
+          onServeDraw={handleServeDrawn}
+        />
       )}
     </div>
   );

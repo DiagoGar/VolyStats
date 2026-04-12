@@ -135,6 +135,7 @@ export function MatchSetupFlow({
       awayScore: 0,
       currentSet: 1,
       servingTeam,
+      rallyStatus: "waiting_serve",
       status: "setup",
       createdAt: Date.now(),
     };

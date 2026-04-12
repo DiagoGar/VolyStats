@@ -37,6 +37,14 @@ export function ActionLog({ actions, match }: ActionLogProps) {
     });
   }, [actions, filterComplex, filterEvaluation, filterTeam, match]);
 
+  const getEvaluationLabel = (action: Action) => {
+    if (action.evaluation) return action.evaluation;
+    if (action.serveResult === "ace") return "Ace";
+    if (action.serveResult === "error") return "Error";
+    if (action.serveResult === "en_juego") return "En juego";
+    return "-";
+  };
+
   const totalByComplex = useMemo(() => {
     const counter: Record<string, number> = { K1: 0, K2: 0, K3: 0, K4: 0 };
     for (const action of actions) {
@@ -114,7 +122,7 @@ export function ActionLog({ actions, match }: ActionLogProps) {
                 <span>{getTeamLabel(action)} / {action.actionType}</span>
                 <span>Zona {action.zone}{action.position ? ` (pos ${action.position})` : ''}</span>
                 <span>Complejo {action.complex || '-'}</span>
-                <span>Eval {action.evaluation || '-'}</span>
+                <span>Eval {getEvaluationLabel(action)}</span>
               </li>
             ))}
           </ul>
