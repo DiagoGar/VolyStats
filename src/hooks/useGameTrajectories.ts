@@ -56,14 +56,14 @@ const normalizeHistory = (raw: any): GameTrajectoryHistory => {
     ...own.map((spike) => ({
       id: crypto.randomUUID(),
       timestamp: spike.createdAt ?? Date.now(),
-      trajectories: [{ team: "own", spike }],
-      directPoint: { team: "own", spike },
+      trajectories: [{ team: "own" as const, spike }],
+      directPoint: { team: "own" as const, spike },
     })),
     ...opponent.map((spike) => ({
       id: crypto.randomUUID(),
       timestamp: spike.createdAt ?? Date.now(),
-      trajectories: [{ team: "opponent", spike }],
-      directPoint: { team: "opponent", spike },
+      trajectories: [{ team: "opponent" as const, spike }],
+      directPoint: { team: "opponent" as const, spike },
     })),
   ].sort((a, b) => a.timestamp - b.timestamp);
 

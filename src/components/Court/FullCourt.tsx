@@ -133,7 +133,7 @@ export function FullCourt({
           if (filterTeam && item.team !== filterTeam) return false;
           // Aplicar filtro de complejo
           if (filterComplex && item.spike.complex !== filterComplex) return false;
-          // Aplicar filtro de evaluaciÃ³n
+          // Aplicar filtro de evaluación
           if (filterEvaluation && item.spike.evaluation !== filterEvaluation) return false;
           return true;
         });
@@ -153,7 +153,7 @@ export function FullCourt({
         drawPersistentTrajectories(ctx, canvas, opponentMap, null, null, undefined, false, 1.0, 3);
 
         if (selectedRally.directPoint) {
-          // Aplicar filtros al punto directo tambiÃ©n
+          // Aplicar filtros al punto directo también
           const directPointItem = selectedRally.directPoint;
           const shouldShowDirectPoint =
             (!filterTeam || directPointItem.team === filterTeam) &&
@@ -611,7 +611,7 @@ export function FullCourt({
               <span>K3 Contraataque</span>
             </div>
           </div>
-          <p className="legend-note">Las flechas muestran direcciÃ³n y evaluaciÃ³n del ataque. El historial de puntos directos se muestra abajo.</p>
+          <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
         </div>
       )}
       <div className="trajectory-controls">
@@ -656,7 +656,7 @@ export function FullCourt({
         </div>
 
         <div className="filter-group">
-          <label>EvaluaciÃ³n:</label>
+          <label>Evaluación:</label>
           <select
             value={filterEvaluation || ''}
             onChange={(e) => setFilterEvaluation(e.target.value as Evaluation || null)}
@@ -677,11 +677,11 @@ export function FullCourt({
         {selectedHistoryRallyId && (
           <div className="selected-indicator">
             <span>Mostrando trayectoria seleccionada</span>
-            <button onClick={clearSelectedTrajectory} className="clear-selection-btn">â</button>
+            <button onClick={clearSelectedTrajectory} className="clear-selection-btn">❌</button>
           </div>
         )}
         {historyRallies.length === 0 ? (
-          <p className="muted">No hay rallies registrados aÃºn.</p>
+          <p className="muted">No hay rallies registrados aún.</p>
         ) : (
           <ul>
             {[...historyRallies].reverse().map((rally, index) => {
@@ -695,7 +695,7 @@ export function FullCourt({
                   onClick={() => handleHistoryClick(rally.id)}
                 >
                   <strong>{hasDefense ? "Rally" : "Punto directo"} </strong>
-                  Ganador: {teamLabel} â Rally {historyRallies.length - index} ({rally.trajectories.length} acciones)
+                  Ganador: {teamLabel} – Rally {historyRallies.length - index} ({rally.trajectories.length} acciones)
                 </li>
               );
             })}
