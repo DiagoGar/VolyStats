@@ -158,6 +158,32 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.rally-result {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #c9c9c9;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rally-result:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.rally-result.own {
+  border-color: #7ac17a;
+  background: #e9f7ea;
+}
+
+.rally-result.opponent {
+  border-color: #d96060;
+  background: #fdeaea;
+}
+
 .serve-option:active,
 .serve-result:active {
   transform: translateY(1px);

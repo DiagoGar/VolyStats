@@ -263,7 +263,7 @@ export function drawPersistentTrajectories(
       end: { x: number; y: number };
       complex?: string;
       evaluation?: string;
-      actionType?: "attack" | "defense";
+      actionType?: "attack" | "defense" | "serve";
     }[]
   >,
   filterComplex: string | null,
@@ -286,7 +286,9 @@ export function drawPersistentTrajectories(
         color =
           trajectory.actionType === "defense"
             ? "#22c1ff"
-            : getTrajectoryColor(trajectory.evaluation, trajectory.complex);
+            : trajectory.actionType === "serve"
+              ? "#0f766e"
+              : getTrajectoryColor(trajectory.evaluation, trajectory.complex);
       }
 
       const start = mirrorY ? { x: trajectory.start.x, y: 1 - trajectory.start.y } : trajectory.start;
@@ -301,7 +303,13 @@ export function drawPersistentTrajectories(
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.globalAlpha = opacity;
-      ctx.setLineDash(trajectory.actionType === "defense" ? [6, 4] : []);
+      ctx.setLineDash(
+        trajectory.actionType === "defense"
+          ? [6, 4]
+          : trajectory.actionType === "serve"
+            ? [2, 6]
+            : []
+      );
 
       ctx.beginPath();
       ctx.moveTo(startX, startY);

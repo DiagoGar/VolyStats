@@ -21,7 +21,7 @@ export interface GameStats {
 }
 
 const countAttackTrajectories = (trajectories: SpikeTrajectoriesByZone, zone: Zone) =>
-  trajectories[zone].filter((spike) => spike.actionType !== "defense").length;
+  trajectories[zone].filter((spike) => spike.actionType !== "defense" && spike.actionType !== "serve").length;
 
 function calculateStatsFromTrajectories(trajectories: SpikeTrajectoriesByZone): MatchStats {
   const zones = { 1: 0, 2: 0, 3: 0, 4: 0, 6: 0 };

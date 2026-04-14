@@ -46,7 +46,7 @@ export default function Page() {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   } | null>(null);
-  const { trajectories, history, addTrajectory, resetGame: resetTrajectories } = useGameTrajectories();
+  const { trajectories, history, addTrajectory, finalizeRally, resetGame: resetTrajectories } = useGameTrajectories();
   const { stats, addAttack, toggleMode, resetGame: resetStats } = useGameStats(trajectories.own, trajectories.opponent);
 
   useEffect(() => {
@@ -491,6 +491,10 @@ export default function Page() {
       };
     });
 
+    if (nextRallyStatus === "waiting_serve" && winnerTeam) {
+      finalizeRally(winnerTeam === "home" ? "own" : "opponent");
+    }
+
     // Resetear asignaciones de roles al inicial si terminó el set
     if (hasSetWinner) {
       setRoleAssignments(initialRoleAssignments);
@@ -596,6 +600,7 @@ export default function Page() {
     serve: { start: { x: number; y: number }; end: { x: number; y: number } }
   ) => {
     if (currentMatch?.rallyStatus !== "waiting_serve") return;
+    addTrajectory(team, 1 as any, serve.start, serve.end, undefined, undefined, undefined, "serve");
     addMatchAction({
       team,
       zone: 1,
@@ -663,6 +668,8 @@ export default function Page() {
         lastActionTeam: null,
       };
     });
+
+    finalizeRally(team);
 
     if (hasSetWinner) {
       setRoleAssignments(initialRoleAssignments);

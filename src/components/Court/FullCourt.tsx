@@ -43,6 +43,7 @@ interface FullCourtProps {
     serveResult: ServeResult,
     serve: { start: { x: number; y: number }; end: { x: number; y: number } }
   ) => void;
+  onRallyResult: (team: "own" | "opponent") => void;
   onSpikeDraw: (
     team: "own" | "opponent",
     zone: Zone,
@@ -68,6 +69,7 @@ export function FullCourt({
   onAttack,
   onToggleMode,
   onServe,
+  onRallyResult,
   onSpikeDraw,
 }: FullCourtProps) {
   const courtOrientation: CourtOrientation = "normal";
@@ -95,7 +97,7 @@ export function FullCourt({
   const [serveDrawEnd, setServeDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionCanvasRef = useRef<HTMLCanvasElement>(null);
-  const historyPoints = trajectoryHistory?.rallies?.filter((rally) => rally.directPoint) ?? [];
+  const historyRallies = trajectoryHistory?.rallies ?? [];
   const servingSide: "own" | "opponent" = servingTeam === "home" ? "own" : "opponent";
   const servingTeamLabel = servingTeam === "home" ? teamNames.home : teamNames.away;
   const interactionMode: "attack" | "serve" | null =
@@ -241,7 +243,7 @@ export function FullCourt({
   const drawPreview = (
     start: { x: number; y: number },
     pos: { x: number; y: number },
-    actionType: "attack" | "defense" = "attack"
+    actionType: "attack" | "defense" | "serve" = "attack"
   ) => {
     const canvas = interactionCanvasRef.current;
     if (!canvas) return;
@@ -250,10 +252,11 @@ export function FullCourt({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawOrigin(ctx, canvas, start);
     const isDefense = actionType === "defense";
+    const isServe = actionType === "serve";
     drawLine(ctx, canvas, start, pos, {
-      color: isDefense ? "#22c1ff" : "#ff2d2d",
+      color: isDefense ? "#22c1ff" : isServe ? "#0f766e" : "#ff2d2d",
       lineWidth: 3,
-      dash: isDefense ? [6, 4] : [],
+      dash: isDefense ? [6, 4] : isServe ? [2, 6] : [],
     });
   };
 
@@ -288,7 +291,7 @@ export function FullCourt({
       setServeDrawStart(pos);
       setServeDrawEnd(pos);
       setIsServeDrawing(true);
-      drawPreview(pos, pos);
+      drawPreview(pos, pos, "serve");
       return;
     }
 
@@ -308,7 +311,7 @@ export function FullCourt({
     if (interactionMode === "serve") {
       if (!isServeDrawing || !serveDrawStart) return;
       setServeDrawEnd(pos);
-      drawPreview(serveDrawStart, pos);
+      drawPreview(serveDrawStart, pos, "serve");
       return;
     }
 
@@ -491,6 +494,30 @@ export function FullCourt({
           </div>
         </div>
       )}
+      {rallyStatus === "in_play" && (
+        <div className="rally-panel">
+          <div className="serve-title">Rally en juego</div>
+          <div className="serve-row">
+            <span className="serve-label">Punto:</span>
+            <div className="serve-options">
+              <button
+                type="button"
+                className="rally-result own"
+                onClick={() => onRallyResult("own")}
+              >
+                Propio
+              </button>
+              <button
+                type="button"
+                className="rally-result opponent"
+                onClick={() => onRallyResult("opponent")}
+              >
+                Contrario
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancha completa */}
       <div className={`court ${rallyStatus === "waiting_serve" ? "court--waiting-serve" : ""}`}>
@@ -646,28 +673,29 @@ export function FullCourt({
       </div>
 
       <div className="point-history">
-        <h4>Historial de Puntos Directos</h4>
+        <h4>Historial de Rallies</h4>
         {selectedHistoryRallyId && (
           <div className="selected-indicator">
-            <span>ð Mostrando trayectoria seleccionada</span>
+            <span>Mostrando trayectoria seleccionada</span>
             <button onClick={clearSelectedTrajectory} className="clear-selection-btn">â</button>
           </div>
         )}
-        {historyPoints.length === 0 ? (
-          <p className="muted">No hay puntos directos anotados aÃºn.</p>
+        {historyRallies.length === 0 ? (
+          <p className="muted">No hay rallies registrados aÃºn.</p>
         ) : (
           <ul>
-            {historyPoints.map((rally, index) => {
-              const directPoint = rally.directPoint!;
-              const teamLabel = directPoint.team === "own" ? "Propio" : "Contrario";
+            {[...historyRallies].reverse().map((rally, index) => {
+              const winnerTeam = rally.winnerTeam ?? rally.directPoint?.team ?? rally.trajectories[rally.trajectories.length - 1]?.team;
+              const teamLabel = winnerTeam === "own" ? "Propio" : winnerTeam === "opponent" ? "Contrario" : "Sin definir";
+              const hasDefense = rally.trajectories.some((item) => item.spike.actionType === "defense");
               return (
                 <li 
                   key={rally.id}
                   className={selectedHistoryRallyId === rally.id ? 'selected' : ''}
                   onClick={() => handleHistoryClick(rally.id)}
                 >
-                  <strong>{directPoint.spike.evaluation || '#'} </strong>
-                  {teamLabel} desde zona {directPoint.spike.zone} Ã¢â¬â Rally {index + 1} ({rally.trajectories.length} ataques)
+                  <strong>{hasDefense ? "Rally" : "Punto directo"} </strong>
+                  Ganador: {teamLabel} â Rally {historyRallies.length - index} ({rally.trajectories.length} acciones)
                 </li>
               );
             })}

@@ -15,7 +15,7 @@ export interface SpikeVector {
   angle: number;
   createdAt: number;
   // Tipo de contacto (ataque o defensa)
-  actionType?: "attack" | "defense";
+  actionType?: "attack" | "defense" | "serve";
   // Complejo de juego (K)
   complex?: Complex;
   // Rol del jugador en la acción

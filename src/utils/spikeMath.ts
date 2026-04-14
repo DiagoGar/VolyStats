@@ -59,7 +59,7 @@ export function createSpikeVector(
   complex?: Complex,
   playerRole?: PlayerRole,
   evaluation?: Evaluation,
-  actionType?: "attack" | "defense"
+  actionType?: "attack" | "defense" | "serve"
 ): Omit<SpikeVector, 'id'> & { id?: string } {
   const angle = calculateAngle(start, end);
 

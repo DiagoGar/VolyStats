@@ -16,6 +16,7 @@ export interface GameRally {
   timestamp: number;
   trajectories: RallyTrajectory[];
   directPoint?: RallyTrajectory;
+  winnerTeam?: "own" | "opponent";
 }
 
 export interface GameTrajectories {
@@ -102,15 +103,36 @@ export function useGameTrajectories() {
   usePersistentStorage(storageKeys.trajectories, trajectories);
   usePersistentStorage(storageKeys.trajectoryHistory, history);
 
+  const buildRallyFromTrajectories = (
+    current: GameTrajectories,
+    winnerTeam?: "own" | "opponent"
+  ): GameRally | null => {
+    const rallyItems = flattenRallyTrajectories(current);
+    if (rallyItems.length === 0) return null;
+
+    const lastItem = rallyItems[rallyItems.length - 1];
+    const hasDefense = rallyItems.some((item) => item.spike.actionType === "defense");
+    const isDirectPoint =
+      !hasDefense && !!winnerTeam && lastItem.team === winnerTeam && lastItem.spike.actionType !== "defense";
+
+    return {
+      id: `rally-${lastItem.spike.id}`,
+      timestamp: Date.now(),
+      trajectories: rallyItems,
+      directPoint: isDirectPoint ? lastItem : undefined,
+      winnerTeam,
+    };
+  };
+
   const addTrajectory = (
     team: "own" | "opponent",
     zone: Zone,
     start: { x: number; y: number },
     end: { x: number; y: number },
-    complex: Complex,
+    complex?: Complex,
     playerRole?: PlayerRole,
     evaluation?: Evaluation,
-    actionType: "attack" | "defense" = "attack"
+    actionType: "attack" | "defense" | "serve" = "attack"
   ) => {
     const spikeData = createSpikeVector(zone, start, end, complex, playerRole, evaluation, actionType);
 
@@ -131,6 +153,7 @@ export function useGameTrajectories() {
           timestamp: Date.now(),
           trajectories: rallyItems,
           directPoint: { team, spike: newSpike },
+          winnerTeam: team,
         };
 
         setHistory((prevHistory) => {
@@ -161,14 +184,36 @@ export function useGameTrajectories() {
     });
   };
 
+  const finalizeRally = (winnerTeam?: "own" | "opponent") => {
+    setTrajectories((prev) => {
+      const rally = buildRallyFromTrajectories(prev, winnerTeam);
+      if (rally) {
+        setHistory((prevHistory) => {
+          const prevRallies = Array.isArray(prevHistory?.rallies) ? prevHistory.rallies : [];
+          if (prevRallies.some((item) => item.id === rally.id)) {
+            return prevHistory ?? { rallies: prevRallies };
+          }
+          return {
+            ...prevHistory,
+            rallies: [...prevRallies, rally],
+          };
+        });
+      }
+
+      return {
+        own: emptyTrajectories,
+        opponent: emptyTrajectories,
+      };
+    });
+  };
+
   const resetGame = () => {
     setTrajectories({
       own: emptyTrajectories,
       opponent: emptyTrajectories,
     });
     setHistory({
-      own: [],
-      opponent: [],
+      rallies: [],
     });
   };
 
@@ -188,6 +233,7 @@ export function useGameTrajectories() {
     trajectories,
     history,
     addTrajectory,
+    finalizeRally,
     resetGame,
     resetTeam,
     resetHistory,

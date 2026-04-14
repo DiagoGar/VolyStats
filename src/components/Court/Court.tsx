@@ -31,6 +31,7 @@ interface Props {
     serveResult: ServeResult,
     serve: { start: { x: number; y: number }; end: { x: number; y: number } }
   ) => void;
+  onRallyResult: (team: "own" | "opponent") => void;
   onSpikeDraw: (
     team: "own" | "opponent",
     zone: Zone,
@@ -57,6 +58,7 @@ export function Court({
   onToggleMode,
   onReset,
   onServe,
+  onRallyResult,
   onSpikeDraw,
 }: Props) {
   return (
@@ -75,6 +77,7 @@ export function Court({
           onAttack={onAttack}
           onToggleMode={onToggleMode}
           onServe={onServe}
+          onRallyResult={onRallyResult}
           onSpikeDraw={onSpikeDraw}
         />
       </div>
