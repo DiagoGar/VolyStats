@@ -441,6 +441,20 @@ export default function Page() {
           ? "waiting_serve"
           : "in_play";
 
+    const nextLastActionType =
+      actionType === "saque"
+        ? serveResult === "en_juego"
+          ? "serve"
+          : null
+        : actionType === "ataque"
+          ? "attack"
+          : actionType === "recepcion"
+            ? "defense"
+            : null;
+
+    const nextLastActionTeam =
+      nextLastActionType && team ? (team === "own" ? "home" : "away") : null;
+
     setCurrentMatch((prev) => {
       if (!prev) return prev;
 
@@ -459,6 +473,8 @@ export default function Page() {
           awayRotations: [...prev.awayRotations, initialAwayRotation],
           servingTeam: winnerTeam ?? prev.servingTeam,
           rallyStatus: "waiting_serve",
+          lastActionType: null,
+          lastActionTeam: null,
           status: nextSet > 5 ? "finished" : "in-progress",
         };
       }
@@ -470,6 +486,8 @@ export default function Page() {
         awayScore,
         servingTeam: serverChanges ? (winnerTeam as "home" | "away") : prev.servingTeam,
         rallyStatus: nextRallyStatus,
+        lastActionType: nextRallyStatus === "in_play" ? nextLastActionType : null,
+        lastActionTeam: nextRallyStatus === "in_play" ? nextLastActionTeam : null,
       };
     });
 
@@ -527,7 +545,6 @@ export default function Page() {
   const handleAttack = (team: "own" | "opponent", zone: number) => {
     if (currentMatch?.rallyStatus !== "in_play") return;
     addAttack(team, zone as any);
-    addMatchAction({ team, zone, evaluation: undefined });
   };
 
   const handleSpikeDraw = (
@@ -535,14 +552,41 @@ export default function Page() {
     zone: number,
     start: { x: number; y: number },
     end: { x: number; y: number },
-    complex: Complex,
+    complex?: Complex,
     playerId?: string,
     playerRole?: PlayerRole,
     evaluation?: ActionEvaluation
   ) => {
     if (currentMatch?.rallyStatus !== "in_play") return;
-    addTrajectory(team, zone as any, start, end, complex, playerRole, evaluation);
-    addMatchAction({ team, zone, complex, playerRole, evaluation, spike: { start, end }, playerId });
+    const teamId = team === "own" ? "home" : "away";
+    const isDefense =
+      currentMatch.lastActionType === "attack" &&
+      currentMatch.lastActionTeam !== null &&
+      currentMatch.lastActionTeam !== teamId;
+    let inferredComplex: Complex | undefined = complex;
+    if (!inferredComplex) {
+      if (currentMatch.lastActionType === "serve" && currentMatch.lastActionTeam !== teamId) {
+        inferredComplex = "K1";
+      }
+      if (currentMatch.lastActionType === "attack" && currentMatch.lastActionTeam !== teamId) {
+        inferredComplex = "K2";
+      }
+      if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam === teamId) {
+        inferredComplex = "K2";
+      }
+    }
+    addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, evaluation, isDefense ? "defense" : "attack");
+    addMatchAction({
+      team,
+      zone,
+      complex: inferredComplex,
+      playerRole,
+      evaluation,
+      spike: { start, end },
+      playerId,
+      actionType: isDefense ? "recepcion" : "ataque",
+      actionKind: isDefense ? "dig" : "spike",
+    });
   };
 
   const handleServe = (
@@ -561,6 +605,112 @@ export default function Page() {
       serveResult,
       serve,
     });
+  };
+
+  const handleRallyResult = (team: "own" | "opponent") => {
+    if (!currentMatch || currentMatch.rallyStatus !== "in_play") return;
+
+    const winnerTeam: "home" | "away" = team === "own" ? "home" : "away";
+    const currentServer = currentMatch.servingTeam ?? "home";
+    const serverChanges = winnerTeam !== currentServer;
+
+    let homeScore = currentMatch.homeScore;
+    let awayScore = currentMatch.awayScore;
+    if (winnerTeam === "home") {
+      homeScore += 1;
+    } else {
+      awayScore += 1;
+    }
+
+    const setWinThreshold = 25;
+    const setLead = 2;
+    const hasSetWinner =
+      (homeScore >= setWinThreshold || awayScore >= setWinThreshold) &&
+      Math.abs(homeScore - awayScore) >= setLead;
+
+    const initialHomeRotation = currentMatch.homeRotations[0] || currentMatch.currentHomeRotation;
+    const initialAwayRotation = currentMatch.awayRotations[0] || currentMatch.currentAwayRotation;
+
+    setCurrentMatch((prev) => {
+      if (!prev) return prev;
+
+      if (hasSetWinner) {
+        const nextSet = prev.currentSet + 1;
+        return {
+          ...prev,
+          homeScore: 0,
+          awayScore: 0,
+          currentSet: nextSet,
+          currentHomeRotation: initialHomeRotation,
+          currentAwayRotation: initialAwayRotation,
+          homeRotations: [...prev.homeRotations, initialHomeRotation],
+          awayRotations: [...prev.awayRotations, initialAwayRotation],
+          servingTeam: winnerTeam ?? prev.servingTeam,
+          rallyStatus: "waiting_serve",
+          lastActionType: null,
+          lastActionTeam: null,
+          status: nextSet > 5 ? "finished" : "in-progress",
+        };
+      }
+
+      return {
+        ...prev,
+        homeScore,
+        awayScore,
+        servingTeam: serverChanges ? winnerTeam : prev.servingTeam,
+        rallyStatus: "waiting_serve",
+        lastActionType: null,
+        lastActionTeam: null,
+      };
+    });
+
+    if (hasSetWinner) {
+      setRoleAssignments(initialRoleAssignments);
+    }
+
+    if (serverChanges && roleAssignments) {
+      const currentHomeAssignments = roleAssignments.homeTeamAssignments;
+      const currentAwayAssignments = roleAssignments.awayTeamAssignments;
+
+      let nextHomeAssignments = currentHomeAssignments;
+      let nextAwayAssignments = currentAwayAssignments;
+      let substitutionEvents: SubstitutionEvent[] = [];
+
+      if (winnerTeam === "home") {
+        const rotatedHome = rotateAssignmentsMap(currentHomeAssignments);
+        const homeResult = applyLiberoCentralRules("home", rotatedHome, true, "rotation-serve");
+        nextHomeAssignments = homeResult.assignments;
+        substitutionEvents = substitutionEvents.concat(homeResult.events);
+
+        const awayResult = applyLiberoCentralRules("away", currentAwayAssignments, false, "loss-of-serve");
+        nextAwayAssignments = awayResult.assignments;
+        substitutionEvents = substitutionEvents.concat(awayResult.events);
+      } else {
+        const rotatedAway = rotateAssignmentsMap(currentAwayAssignments);
+        const awayResult = applyLiberoCentralRules("away", rotatedAway, true, "rotation-serve");
+        nextAwayAssignments = awayResult.assignments;
+        substitutionEvents = substitutionEvents.concat(awayResult.events);
+
+        const homeResult = applyLiberoCentralRules("home", currentHomeAssignments, false, "loss-of-serve");
+        nextHomeAssignments = homeResult.assignments;
+        substitutionEvents = substitutionEvents.concat(homeResult.events);
+      }
+
+      setRoleAssignments({
+        homeTeamAssignments: nextHomeAssignments,
+        awayTeamAssignments: nextAwayAssignments,
+      });
+
+      if (substitutionEvents.length > 0) {
+        setCurrentMatch((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            substitutions: [...(prev.substitutions || []), ...substitutionEvents],
+          };
+        });
+      }
+    }
   };
 
 
@@ -677,6 +827,8 @@ export default function Page() {
         servingTeam={currentMatch.servingTeam}
         teamNames={{ home: currentMatch.homeTeam.name, away: currentMatch.awayTeam.name }}
         rallyStatus={currentMatch.rallyStatus ?? "waiting_serve"}
+        lastActionType={currentMatch.lastActionType ?? null}
+        lastActionTeam={currentMatch.lastActionTeam ?? null}
         onAttack={handleAttack}
         onToggleMode={toggleMode}
         onReset={() => {
@@ -691,10 +843,13 @@ export default function Page() {
               awayScore: 0,
               currentSet: 1,
               rallyStatus: "waiting_serve",
+              lastActionType: null,
+              lastActionTeam: null,
             };
           });
         }}
         onServe={handleServe}
+        onRallyResult={handleRallyResult}
         onSpikeDraw={handleSpikeDraw}
       />
 

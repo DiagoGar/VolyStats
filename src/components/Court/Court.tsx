@@ -20,6 +20,8 @@ interface Props {
     away: string;
   };
   rallyStatus: "waiting_serve" | "in_play";
+  lastActionType?: "serve" | "attack" | "defense" | null;
+  lastActionTeam?: "home" | "away" | null;
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onReset: () => void;
@@ -49,6 +51,8 @@ export function Court({
   servingTeam,
   teamNames,
   rallyStatus,
+  lastActionType,
+  lastActionTeam,
   onAttack,
   onToggleMode,
   onReset,
@@ -66,6 +70,8 @@ export function Court({
           servingTeam={servingTeam}
           teamNames={teamNames}
           rallyStatus={rallyStatus}
+          lastActionType={lastActionType}
+          lastActionTeam={lastActionTeam}
           onAttack={onAttack}
           onToggleMode={onToggleMode}
           onServe={onServe}

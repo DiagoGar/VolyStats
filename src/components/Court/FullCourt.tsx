@@ -1,14 +1,17 @@
-import { ZoneButton } from "./Zone";
-import type { MatchStats, Zone } from "@/types/stats";
+﻿import type { MatchStats, Zone } from "@/types/stats";
 import { calculatePercentage } from "@/utils/calculations";
-import { averageAngle, angularDeviation } from "@/utils/spikeMath";
-import { SpikeDraw } from "../SpikeDraw/SpikeDraw";
-import { ServeDraw } from "../ServeDraw/ServeDraw";
 import type { GameTrajectoryHistory, SpikeTrajectoriesByZone } from "@/hooks/useGameTrajectories";
 import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
-import { drawPersistentTrajectories } from "@/utils/canvasUtils";
+import { drawPersistentTrajectories, drawOrigin, drawLine, getNormalizedPos } from "@/utils/canvasUtils";
 import type { CourtPosition, Player, ServeResult, ServeType } from "@/types/volley-model";
+import {
+  getActionZoneFromPosition,
+  getCourtPositionCoords,
+  isTeamOnBottom,
+  toLegacyZone,
+  type CourtOrientation,
+} from "@/utils/courtGeometry";
 
 interface FullCourtProps {
   stats: {
@@ -30,6 +33,8 @@ interface FullCourtProps {
     away: string;
   };
   rallyStatus: "waiting_serve" | "in_play";
+  lastActionType?: "serve" | "attack" | "defense" | null;
+  lastActionTeam?: "home" | "away" | null;
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onServe: (
@@ -43,7 +48,7 @@ interface FullCourtProps {
     zone: Zone,
     start: { x: number; y: number },
     end: { x: number; y: number },
-    complex: Complex,
+    complex?: Complex,
     playerId?: string,
     playerRole?: PlayerRole,
     evaluation?: Evaluation
@@ -58,19 +63,14 @@ export function FullCourt({
   servingTeam,
   teamNames,
   rallyStatus,
+  lastActionType,
+  lastActionTeam,
   onAttack,
   onToggleMode,
   onServe,
   onSpikeDraw,
 }: FullCourtProps) {
-  const [drawState, setDrawState] = useState<{
-    team: "own" | "opponent";
-    zone: Zone;
-    complex?: Complex;
-    playerId?: string;
-    playerRole?: PlayerRole;
-    trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
-  } | null>(null);
+  const courtOrientation: CourtOrientation = "normal";
   const [filterComplex, setFilterComplex] = useState<Complex | null>(null);
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
@@ -80,10 +80,26 @@ export function FullCourt({
   const [serveType, setServeType] = useState<ServeType>("flotado");
   const [serveTrajectory, setServeTrajectory] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
   const [serveDrawOpen, setServeDrawOpen] = useState(false);
+  const [attackDrawState, setAttackDrawState] = useState<{
+    team: "own" | "opponent";
+    playerId?: string;
+    playerRole?: PlayerRole;
+    playerName?: string;
+    position?: CourtPosition;
+  } | null>(null);
+  const [isAttackDrawing, setIsAttackDrawing] = useState(false);
+  const [attackDrawStart, setAttackDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [attackDrawEnd, setAttackDrawEnd] = useState<{ x: number; y: number } | null>(null);
+  const [isServeDrawing, setIsServeDrawing] = useState(false);
+  const [serveDrawStart, setServeDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [serveDrawEnd, setServeDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const interactionCanvasRef = useRef<HTMLCanvasElement>(null);
   const historyPoints = trajectoryHistory?.rallies?.filter((rally) => rally.directPoint) ?? [];
   const servingSide: "own" | "opponent" = servingTeam === "home" ? "own" : "opponent";
   const servingTeamLabel = servingTeam === "home" ? teamNames.home : teamNames.away;
+  const interactionMode: "attack" | "serve" | null =
+    attackDrawState ? "attack" : serveDrawOpen && rallyStatus === "waiting_serve" ? "serve" : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -115,7 +131,7 @@ export function FullCourt({
           if (filterTeam && item.team !== filterTeam) return false;
           // Aplicar filtro de complejo
           if (filterComplex && item.spike.complex !== filterComplex) return false;
-          // Aplicar filtro de evaluación
+          // Aplicar filtro de evaluaciÃ³n
           if (filterEvaluation && item.spike.evaluation !== filterEvaluation) return false;
           return true;
         });
@@ -135,7 +151,7 @@ export function FullCourt({
         drawPersistentTrajectories(ctx, canvas, opponentMap, null, null, undefined, false, 1.0, 3);
 
         if (selectedRally.directPoint) {
-          // Aplicar filtros al punto directo también
+          // Aplicar filtros al punto directo tambiÃ©n
           const directPointItem = selectedRally.directPoint;
           const shouldShowDirectPoint =
             (!filterTeam || directPointItem.team === filterTeam) &&
@@ -153,6 +169,23 @@ export function FullCourt({
     }
   }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, showTrajectories, selectedHistoryRallyId]);
 
+  useEffect(() => {
+    const canvas = interactionCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+
   const getValue = (team: "own" | "opponent", zone: Zone) => {
     const teamStats = stats[team];
     if (teamStats.mode === "cantidad") {
@@ -169,12 +202,20 @@ export function FullCourt({
     return assignments[zone as CourtPosition] || null;
   };
 
-  const handleLongPress = (team: "own" | "opponent", zone: Zone) => {
-    setDrawState({ team, zone, complex: undefined, playerId: undefined, playerRole: undefined, trajectory: null });
-  };
-
-  const handleAttack = (team: "own" | "opponent", zone: Zone) => {
-    onAttack(team, zone);
+  const handlePlayerAttack = (team: "own" | "opponent", position: CourtPosition, player?: Player | null) => {
+    if (rallyStatus !== "in_play") {
+      const markerPos = getCourtPositionCoords(position, team, courtOrientation);
+      const legacyZone = toLegacyZone(getActionZoneFromPosition(markerPos, team, courtOrientation));
+      onAttack(team, legacyZone);
+      return;
+    }
+    setAttackDrawState({
+      team,
+      playerId: player?.id,
+      playerRole: player?.primaryRole,
+      playerName: player?.name ?? "Sin asignar",
+      position,
+    });
   };
 
   const handleServeResult = (serveResult: ServeResult) => {
@@ -183,27 +224,123 @@ export function FullCourt({
     setServeTrajectory(null);
   };
 
-  const handleComplexSelect = (complex: Complex) => {
-    if (drawState) {
-      setDrawState({ ...drawState, complex, playerId: undefined, playerRole: undefined });
-    }
-  };
-
-  const handlePlayerSelect = (player: Player) => {
-    if (drawState) {
-      setDrawState({ ...drawState, playerId: player.id, playerRole: player.primaryRole });
-    }
-  };
-
-  const handleTrajectoryDrawn = (
+  const handleAttackDrawn = (
     team: "own" | "opponent",
-    zone: Zone,
     start: { x: number; y: number },
     end: { x: number; y: number }
   ) => {
-    if (drawState) {
-      setDrawState({ ...drawState, trajectory: { start, end } });
+    if (!attackDrawState) return;
+    const actionZone = getActionZoneFromPosition(start, team, courtOrientation);
+    const legacyZone = toLegacyZone(actionZone);
+    onAttack(team, legacyZone);
+    onSpikeDraw(team, legacyZone, start, end, undefined, attackDrawState.playerId, attackDrawState.playerRole, undefined);
+    setAttackDrawState(null);
+    setAttackDrawStart(null);
+  };
+
+  const drawPreview = (
+    start: { x: number; y: number },
+    pos: { x: number; y: number },
+    actionType: "attack" | "defense" = "attack"
+  ) => {
+    const canvas = interactionCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawOrigin(ctx, canvas, start);
+    const isDefense = actionType === "defense";
+    drawLine(ctx, canvas, start, pos, {
+      color: isDefense ? "#22c1ff" : "#ff2d2d",
+      lineWidth: 3,
+      dash: isDefense ? [6, 4] : [],
+    });
+  };
+
+  const isDefenseAction = (team: "own" | "opponent") => {
+    if (!lastActionType || !lastActionTeam) return false;
+    if (lastActionType !== "attack") return false;
+    const teamId = team === "own" ? "home" : "away";
+    return lastActionTeam !== teamId;
+  };
+
+  const isAllowedServeStart = (pos: { x: number; y: number }, team: "own" | "opponent") => {
+    const band = 0.15;
+    const isBottom = isTeamOnBottom(team, courtOrientation);
+    return isBottom ? pos.y >= 1 - band : pos.y <= band;
+  };
+
+  const clearInteractionCanvas = () => {
+    const canvas = interactionCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!interactionMode) return;
+    const canvas = interactionCanvasRef.current;
+    if (!canvas) return;
+    const pos = getNormalizedPos(e, canvas);
+
+    if (interactionMode === "serve") {
+      if (!isAllowedServeStart(pos, servingSide)) return;
+      setServeDrawStart(pos);
+      setServeDrawEnd(pos);
+      setIsServeDrawing(true);
+      drawPreview(pos, pos);
+      return;
     }
+
+    if (!attackDrawState) return;
+    setAttackDrawStart(pos);
+    setIsAttackDrawing(true);
+    setAttackDrawEnd(pos);
+    drawPreview(pos, pos, isDefenseAction(attackDrawState.team) ? "defense" : "attack");
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!interactionMode) return;
+    const canvas = interactionCanvasRef.current;
+    if (!canvas) return;
+    const pos = getNormalizedPos(e, canvas);
+
+    if (interactionMode === "serve") {
+      if (!isServeDrawing || !serveDrawStart) return;
+      setServeDrawEnd(pos);
+      drawPreview(serveDrawStart, pos);
+      return;
+    }
+
+    if (!isAttackDrawing || !attackDrawState || !attackDrawStart) return;
+    setAttackDrawEnd(pos);
+    drawPreview(attackDrawStart, pos, isDefenseAction(attackDrawState.team) ? "defense" : "attack");
+  };
+
+  const handlePointerUp = () => {
+    if (interactionMode === "serve") {
+      if (!isServeDrawing || !serveDrawEnd || !serveDrawStart) {
+        setIsServeDrawing(false);
+        return;
+      }
+      setServeTrajectory({ start: serveDrawStart, end: serveDrawEnd });
+      setServeDrawOpen(false);
+      setIsServeDrawing(false);
+      setServeDrawEnd(null);
+      setServeDrawStart(null);
+      clearInteractionCanvas();
+      return;
+    }
+
+    if (!isAttackDrawing || !attackDrawState || !attackDrawEnd || !attackDrawStart) {
+      setIsAttackDrawing(false);
+      return;
+    }
+    handleAttackDrawn(attackDrawState.team, attackDrawStart, attackDrawEnd);
+    setIsAttackDrawing(false);
+    setAttackDrawEnd(null);
+    setAttackDrawStart(null);
+    clearInteractionCanvas();
   };
 
   const handleHistoryClick = (rallyId: string) => {
@@ -212,36 +349,6 @@ export function FullCourt({
 
   const clearSelectedTrajectory = () => {
     setSelectedHistoryRallyId(null);
-  };
-
-  const handleEvaluationSelect = (evaluation: Evaluation | undefined) => {
-    if (drawState && drawState.trajectory) {
-      onSpikeDraw(
-        drawState.team,
-        drawState.zone,
-        drawState.trajectory.start,
-        drawState.trajectory.end,
-        drawState.complex!,
-        drawState.playerId || undefined,
-        drawState.playerRole || undefined,
-        evaluation
-      );
-      setDrawState(null);
-    }
-  };
-
-  const handleCloseDraw = () => {
-    setDrawState(null);
-  };
-
-  const handleServeDrawn = (
-    team: "own" | "opponent",
-    zone: Zone,
-    start: { x: number; y: number },
-    end: { x: number; y: number }
-  ) => {
-    setServeTrajectory({ start, end });
-    setServeDrawOpen(false);
   };
 
   useEffect(() => {
@@ -256,6 +363,42 @@ export function FullCourt({
   }, [rallyStatus, serveTrajectory]);
 
   const serverPlayer = getPlayerAtZone(servingSide, 1);
+  const legacyZones: Zone[] = [1, 2, 3, 4, 6];
+  const getValueForPosition = (team: "own" | "opponent", position: CourtPosition) => {
+    if (!legacyZones.includes(position as Zone)) return "-";
+    return getValue(team, position as Zone);
+  };
+
+  const renderPlayerMarkers = (team: "own" | "opponent") => {
+    const positions: CourtPosition[] = [1, 2, 3, 4, 5, 6];
+    const assignments = roleAssignments
+      ? team === "own"
+        ? roleAssignments.homeTeamAssignments
+        : roleAssignments.awayTeamAssignments
+      : null;
+
+    return positions.map((position) => {
+      const player = assignments ? assignments[position] : null;
+      const coords = getCourtPositionCoords(position, team, courtOrientation);
+      const isSelected = attackDrawState?.position === position && attackDrawState?.team === team;
+      const value = getValueForPosition(team, position);
+      const label = player?.name ?? "Sin asignar";
+
+      return (
+        <button
+          key={`${team}-${position}`}
+          className={`player-marker ${team} ${isSelected ? "selected" : ""}`}
+          style={{ left: `${coords.x * 100}%`, top: `${coords.y * 100}%` }}
+          onClick={() => handlePlayerAttack(team, position, player)}
+          type="button"
+        >
+          <span className="player-zone">Z{position}</span>
+          <span className="player-name">{label}</span>
+          <span className="player-value">{value}</span>
+        </button>
+      );
+    });
+  };
 
   return (
     <div className="full-court">
@@ -311,7 +454,7 @@ export function FullCourt({
           <div className="serve-row">
             <span className="serve-label">Trayectoria:</span>
             <div className="serve-options">
-              <button type="button" className="serve-option" onClick={() => setServeDrawOpen(true)}>
+              <button type="button" className="serve-option" onClick={() => setServeDrawOpen((prev) => !prev)}>
                 {serveTrajectory ? "Redibujar" : "Dibujar"}
               </button>
               {serveTrajectory && <span className="serve-helper">Lista</span>}
@@ -356,112 +499,57 @@ export function FullCourt({
             Esperando saque
           </div>
         )}
-        {/* Equipo contrario (arriba) */}
-        <div className="team-section opponent-section">
-          <div className="team-label">Equipo Contrario</div>
-          <div className="zones-grid">
-            <ZoneButton
-              zone={1}
-              value={getValue("opponent", 1)}
-              onClick={() => handleAttack("opponent", 1)}
-              onLongPress={() => handleLongPress("opponent", 1)}
-              player={getPlayerAtZone("opponent", 1)}
-            />
-            <ZoneButton
-              zone={6}
-              value={getValue("opponent", 6)}
-              onClick={() => handleAttack("opponent", 6)}
-              onLongPress={() => handleLongPress("opponent", 6)}
-              player={getPlayerAtZone("opponent", 6)}
-            />
-            <div className="zone disabled">
-              <div className="zone-label">Zona 5</div>
-            </div>
-          </div>
-          <div className="zones-grid back-row">
-            <ZoneButton
-              zone={2}
-              value={getValue("opponent", 2)}
-              onClick={() => handleAttack("opponent", 2)}
-              onLongPress={() => handleLongPress("opponent", 2)}
-              player={getPlayerAtZone("opponent", 2)}
-            />
-            <ZoneButton
-              zone={3}
-              value={getValue("opponent", 3)}
-              onClick={() => handleAttack("opponent", 3)}
-              onLongPress={() => handleLongPress("opponent", 3)}
-              player={getPlayerAtZone("opponent", 3)}
-            />
-            <ZoneButton
-              zone={4}
-              value={getValue("opponent", 4)}
-              onClick={() => handleAttack("opponent", 4)}
-              onLongPress={() => handleLongPress("opponent", 4)}
-              player={getPlayerAtZone("opponent", 4)}
-            />
-          </div>
+
+        <div className="court-label court-label--top">
+          {isTeamOnBottom("own", courtOrientation)
+            ? `Equipo Contrario · ${teamNames.away}`
+            : `Equipo Propio · ${teamNames.home}`}
+        </div>
+        <div className="court-label court-label--bottom">
+          {isTeamOnBottom("own", courtOrientation)
+            ? `Equipo Propio · ${teamNames.home}`
+            : `Equipo Contrario · ${teamNames.away}`}
         </div>
 
-        {/* Línea central */}
+        {interactionMode === "serve" && (
+          <div className="court-hint">Saque: dibuja desde el fondo de la cancha</div>
+        )}
+        {interactionMode === "attack" && attackDrawState && (
+          <div className="court-hint">
+            {isDefenseAction(attackDrawState.team) ? "Defensa" : "Ataque"}: {attackDrawState.playerName ?? "Jugador"} · arrastra para dibujar
+            <button
+              type="button"
+              className="court-cancel"
+              onClick={() => {
+                setAttackDrawState(null);
+                setIsAttackDrawing(false);
+                setAttackDrawEnd(null);
+                setAttackDrawStart(null);
+                clearInteractionCanvas();
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+
         <div className="center-line"></div>
-
-        {/* Equipo propio (abajo) */}
-        <div className="team-section own-section">
-          <div className="team-label">Equipo Propio</div>
-          <div className="zones-grid">
-            <ZoneButton
-              zone={4}
-              value={getValue("own", 4)}
-              onClick={() => handleAttack("own", 4)}
-              onLongPress={() => handleLongPress("own", 4)}
-              player={getPlayerAtZone("own", 4)}
-            />
-            <ZoneButton
-              zone={3}
-              value={getValue("own", 3)}
-              onClick={() => handleAttack("own", 3)}
-              onLongPress={() => handleLongPress("own", 3)}
-              player={getPlayerAtZone("own", 3)}
-            />
-            <ZoneButton
-              zone={2}
-              value={getValue("own", 2)}
-              onClick={() => handleAttack("own", 2)}
-              onLongPress={() => handleLongPress("own", 2)}
-              player={getPlayerAtZone("own", 2)}
-            />
-          </div>
-          <div className="zones-grid back-row">
-            <div className="zone disabled">
-              <div className="zone-label">Zona 5</div>
-            </div>
-            <ZoneButton
-              zone={6}
-              value={getValue("own", 6)}
-              onClick={() => handleAttack("own", 6)}
-              onLongPress={() => handleLongPress("own", 6)}
-              player={getPlayerAtZone("own", 6)}
-            />
-            <ZoneButton
-              zone={1}
-              value={getValue("own", 1)}
-              onClick={() => handleAttack("own", 1)}
-              onLongPress={() => handleLongPress("own", 1)}
-              player={getPlayerAtZone("own", 1)}
-            />
-          </div>
-        </div>
+        <div className="court-players">{renderPlayerMarkers("opponent")}</div>
+        <div className="court-players">{renderPlayerMarkers("own")}</div>
 
         {/* Canvas para trayectorias */}
+        <canvas ref={canvasRef} className="trajectory-canvas" width={600} height={400} />
         <canvas
-          ref={canvasRef}
-          className="trajectory-canvas"
+          ref={interactionCanvasRef}
+          className={`interaction-canvas ${interactionMode ? "active" : ""}`}
           width={600}
           height={400}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
         />
       </div>
-
       {/* Leyenda de colores */}
       {showLegend && (
         <div className="trajectory-legend">
@@ -496,7 +584,7 @@ export function FullCourt({
               <span>K3 Contraataque</span>
             </div>
           </div>
-          <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
+          <p className="legend-note">Las flechas muestran direcciÃ³n y evaluaciÃ³n del ataque. El historial de puntos directos se muestra abajo.</p>
         </div>
       )}
       <div className="trajectory-controls">
@@ -541,7 +629,7 @@ export function FullCourt({
         </div>
 
         <div className="filter-group">
-          <label>Evaluación:</label>
+          <label>EvaluaciÃ³n:</label>
           <select
             value={filterEvaluation || ''}
             onChange={(e) => setFilterEvaluation(e.target.value as Evaluation || null)}
@@ -561,12 +649,12 @@ export function FullCourt({
         <h4>Historial de Puntos Directos</h4>
         {selectedHistoryRallyId && (
           <div className="selected-indicator">
-            <span>📍 Mostrando trayectoria seleccionada</span>
-            <button onClick={clearSelectedTrajectory} className="clear-selection-btn">✕</button>
+            <span>ð Mostrando trayectoria seleccionada</span>
+            <button onClick={clearSelectedTrajectory} className="clear-selection-btn">â</button>
           </div>
         )}
         {historyPoints.length === 0 ? (
-          <p className="muted">No hay puntos directos anotados aún.</p>
+          <p className="muted">No hay puntos directos anotados aÃºn.</p>
         ) : (
           <ul>
             {historyPoints.map((rally, index) => {
@@ -579,7 +667,7 @@ export function FullCourt({
                   onClick={() => handleHistoryClick(rally.id)}
                 >
                   <strong>{directPoint.spike.evaluation || '#'} </strong>
-                  {teamLabel} desde zona {directPoint.spike.zone} â€“ Rally {index + 1} ({rally.trajectories.length} ataques)
+                  {teamLabel} desde zona {directPoint.spike.zone} Ã¢â¬â Rally {index + 1} ({rally.trajectories.length} ataques)
                 </li>
               );
             })}
@@ -587,84 +675,13 @@ export function FullCourt({
         )}
       </div>
 
-      {/* Modales */}
-      {drawState !== null && !drawState.complex && (
-        <div className="complex-selector-overlay">
-          <div className="complex-selector">
-            <h3>Selecciona el Complejo de Juego</h3>
-            <div className="complex-buttons">
-              <button onClick={() => handleComplexSelect('K1')}>K1 - Side-out</button>
-              <button onClick={() => handleComplexSelect('K2')}>K2 - Break-point</button>
-              <button onClick={() => handleComplexSelect('K3')}>K3 - Contraataque</button>
-              <button onClick={() => handleComplexSelect('K4')}>K4 - Freeball</button>
-            </div>
-            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
-          </div>
-        </div>
-      )}
-      {drawState !== null && drawState.complex && !drawState.playerId && (
-        <div className="role-selector-overlay">
-          <div className="role-selector">
-            <h3>Selecciona el Jugador</h3>
-            <div className="role-buttons">
-              {(roleAssignments
-                ? Object.values(
-                    drawState.team === "own"
-                      ? roleAssignments.homeTeamAssignments
-                      : roleAssignments.awayTeamAssignments
-                  )
-                : []
-              )
-                .filter((p, index, arr) => arr.findIndex((x) => x.id === p.id) === index)
-                .map((player) => (
-                  <button key={player.id} onClick={() => handlePlayerSelect(player)}>
-                    {player.name} ({player.primaryRole})
-                  </button>
-                ))}
-            </div>
-            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
-          </div>
-        </div>
-      )}
-      {drawState !== null && drawState.complex && drawState.playerId && !drawState.trajectory && (
-        <SpikeDraw
-          team={drawState.team}
-          zone={drawState.zone}
-          complex={drawState.complex}
-          playerRole={drawState.playerRole}
-          onClose={handleCloseDraw}
-          onSpikeDraw={handleTrajectoryDrawn}
-          averageAngle={averageAngle(trajectories[drawState.team][drawState.zone])}
-          trajectories={trajectories[drawState.team][drawState.zone]}
-          angularDeviation={angularDeviation(trajectories[drawState.team][drawState.zone])}
-        />
-      )}
-      {drawState !== null && drawState.trajectory && (
-        <div className="evaluation-selector-overlay">
-          <div className="evaluation-selector">
-            <h3>Evalúa la Acción (Opcional)</h3>
-            <div className="evaluation-buttons">
-              <button onClick={() => handleEvaluationSelect('#')}># Punto directo</button>
-              <button onClick={() => handleEvaluationSelect('++')}>++ Muy positivo</button>
-              <button onClick={() => handleEvaluationSelect('+')}>+ Positivo</button>
-              <button onClick={() => handleEvaluationSelect('/')}>/ Neutro</button>
-              <button onClick={() => handleEvaluationSelect('-')}>- Negativo</button>
-              <button onClick={() => handleEvaluationSelect('--')}>-- Error directo</button>
-            </div>
-            <button className="skip-btn" onClick={() => handleEvaluationSelect(undefined)}>Omitir</button>
-            <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
-          </div>
-        </div>
-      )}
-      {serveDrawOpen && rallyStatus === "waiting_serve" && (
-        <ServeDraw
-          team={servingSide}
-          zone={1}
-          onClose={() => setServeDrawOpen(false)}
-          onServeDraw={handleServeDrawn}
-        />
-      )}
+
     </div>
   );
 }
+
+
+
+
+
 

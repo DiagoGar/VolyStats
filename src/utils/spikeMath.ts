@@ -58,7 +58,8 @@ export function createSpikeVector(
   end: { x: number; y: number },
   complex?: Complex,
   playerRole?: PlayerRole,
-  evaluation?: Evaluation
+  evaluation?: Evaluation,
+  actionType?: "attack" | "defense"
 ): Omit<SpikeVector, 'id'> & { id?: string } {
   const angle = calculateAngle(start, end);
 
@@ -68,6 +69,7 @@ export function createSpikeVector(
     end,
     angle,
     createdAt: Date.now(),
+    actionType,
     complex,
     playerRole,
     evaluation,

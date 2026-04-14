@@ -109,9 +109,10 @@ export function useGameTrajectories() {
     end: { x: number; y: number },
     complex: Complex,
     playerRole?: PlayerRole,
-    evaluation?: Evaluation
+    evaluation?: Evaluation,
+    actionType: "attack" | "defense" = "attack"
   ) => {
-    const spikeData = createSpikeVector(zone, start, end, complex, playerRole, evaluation);
+    const spikeData = createSpikeVector(zone, start, end, complex, playerRole, evaluation, actionType);
 
     const newSpike: SpikeVector = {
       id: crypto.randomUUID(),

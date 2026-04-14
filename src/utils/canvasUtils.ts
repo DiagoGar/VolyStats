@@ -39,15 +39,22 @@ export function drawLine(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   start: { x: number; y: number },
-  end: { x: number; y: number }
+  end: { x: number; y: number },
+  options?: { color?: string; lineWidth?: number; dash?: number[] }
 ) {
-  ctx.strokeStyle = "#ff2d2d";
-  ctx.lineWidth = 3;
+  const color = options?.color ?? "#ff2d2d";
+  const lineWidth = options?.lineWidth ?? 3;
+  const dash = options?.dash ?? [];
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.setLineDash(dash);
 
   ctx.beginPath();
   ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
   ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
   ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 export function drawAverageArrow(
@@ -249,7 +256,16 @@ export function drawArrowHead(
 export function drawPersistentTrajectories(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
-  trajectories: Record<number, { start: { x: number; y: number }; end: { x: number; y: number }; complex?: string; evaluation?: string }[]>,
+  trajectories: Record<
+    number,
+    {
+      start: { x: number; y: number };
+      end: { x: number; y: number };
+      complex?: string;
+      evaluation?: string;
+      actionType?: "attack" | "defense";
+    }[]
+  >,
   filterComplex: string | null,
   filterEvaluation: string | null,
   overrideColor?: string,
@@ -267,7 +283,10 @@ export function drawPersistentTrajectories(
       // Determinar color
       let color = overrideColor;
       if (!color) {
-        color = getTrajectoryColor(trajectory.evaluation, trajectory.complex);
+        color =
+          trajectory.actionType === "defense"
+            ? "#22c1ff"
+            : getTrajectoryColor(trajectory.evaluation, trajectory.complex);
       }
 
       const start = mirrorY ? { x: trajectory.start.x, y: 1 - trajectory.start.y } : trajectory.start;
@@ -282,6 +301,7 @@ export function drawPersistentTrajectories(
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.globalAlpha = opacity;
+      ctx.setLineDash(trajectory.actionType === "defense" ? [6, 4] : []);
 
       ctx.beginPath();
       ctx.moveTo(startX, startY);
@@ -291,6 +311,7 @@ export function drawPersistentTrajectories(
       // Dibujar punta de flecha
       drawArrowHead(ctx, startX, startY, endX, endY, color, 10);
 
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     });
   });

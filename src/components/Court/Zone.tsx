@@ -10,6 +10,7 @@ interface Props {
   onLongPress?: (zone: Zone) => void;
   disabled?: boolean;
   player?: Player | null;
+  onPlayerClick?: (zone: Zone, player: Player) => void;
 }
 
 export function ZoneButton({
@@ -19,6 +20,7 @@ export function ZoneButton({
   onLongPress,
   disabled,
   player,
+  onPlayerClick,
 }: Props) {
   const handlers = useLongPress({
     onClick: () => !disabled && onClick(zone),
@@ -37,7 +39,18 @@ export function ZoneButton({
     >
       <div className="zone-label">Zona {zone}</div>
       {player && (
-        <div className="player-name">{player.name}</div>
+        <button
+          type="button"
+          className="player-name player-name-btn"
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onPlayerClick?.(zone, player);
+          }}
+        >
+          {player.name}
+        </button>
       )}
       {value !== undefined && (
         <div className="zone-value">{value}</div>

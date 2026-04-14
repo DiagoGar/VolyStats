@@ -371,6 +371,8 @@ export interface Match {
   currentSet: number; // 1-5 (máximo)
   servingTeam: 'home' | 'away'; // Equipo que tiene el saque actualmente
   rallyStatus: 'waiting_serve' | 'in_play';
+  lastActionType?: 'serve' | 'attack' | 'defense' | null;
+  lastActionTeam?: 'home' | 'away' | null;
   
   // Metadatos
   status: 'setup' | 'in-progress' | 'finished';

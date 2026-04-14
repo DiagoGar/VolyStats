@@ -43,8 +43,8 @@ export function TeamEditor({
   });
 
   const handleAddPlayer = () => {
-    if (!newPlayer.name || !newPlayer.number) {
-      alert("Nombre y número son obligatorios");
+    if (!newPlayer.number) {
+      alert("El número es obligatorio");
       return;
     }
 
@@ -85,11 +85,6 @@ export function TeamEditor({
   };
 
   const handleSave = () => {
-    if (!teamName) {
-      alert("El nombre del equipo es obligatorio");
-      return;
-    }
-
     if (players.length < 6) {
       alert("El equipo necesita al menos 6 jugadores");
       return;
@@ -117,7 +112,7 @@ export function TeamEditor({
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="Ej: Equipo A"
+            placeholder="Ej: Equipo A (opcional)"
           />
         </div>
 
@@ -154,7 +149,7 @@ export function TeamEditor({
               type="text"
               value={newPlayer.name}
               onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
-              placeholder="Nombre"
+              placeholder="Nombre (opcional)"
               className="name-input"
             />
             <select
@@ -199,7 +194,7 @@ export function TeamEditor({
             <div key={player.id} className="player-item">
               <div className="player-badge">#{player.number}</div>
               <div className="player-info">
-                <p className="name">{player.name}</p>
+                <p className="name">{player.name || "Sin nombre"}</p>
                 <p className="role">{player.primaryRole}</p>
               </div>
               <div className="player-actions">
