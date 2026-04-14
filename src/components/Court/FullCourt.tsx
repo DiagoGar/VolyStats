@@ -4,7 +4,7 @@ import type { GameTrajectoryHistory, SpikeTrajectoriesByZone } from "@/hooks/use
 import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import { drawPersistentTrajectories, drawOrigin, drawLine, getNormalizedPos } from "@/utils/canvasUtils";
-import type { CourtPosition, Player, ServeResult, ServeType } from "@/types/volley-model";
+import type { CourtPosition, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
 import {
   getActionZoneFromPosition,
   getCourtPositionCoords,
@@ -32,7 +32,7 @@ interface FullCourtProps {
     home: string;
     away: string;
   };
-  rallyStatus: "waiting_serve" | "in_play";
+  rallyStatus: RallyStatus;
   lastActionType?: "serve" | "attack" | "defense" | null;
   lastActionTeam?: "home" | "away" | null;
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
@@ -42,6 +42,14 @@ interface FullCourtProps {
     serveType: ServeType,
     serveResult: ServeResult,
     serve: { start: { x: number; y: number }; end: { x: number; y: number } }
+  ) => void;
+  onServeReception: (
+    team: "own" | "opponent",
+    zone: Zone,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    playerId?: string,
+    playerRole?: PlayerRole
   ) => void;
   onRallyResult: (team: "own" | "opponent") => void;
   onSpikeDraw: (
@@ -69,6 +77,7 @@ export function FullCourt({
   onAttack,
   onToggleMode,
   onServe,
+  onServeReception,
   onRallyResult,
   onSpikeDraw,
 }: FullCourtProps) {
@@ -99,9 +108,12 @@ export function FullCourt({
   const interactionCanvasRef = useRef<HTMLCanvasElement>(null);
   const historyRallies = trajectoryHistory?.rallies ?? [];
   const servingSide: "own" | "opponent" = servingTeam === "home" ? "own" : "opponent";
+  const receivingSide: "own" | "opponent" = servingSide === "own" ? "opponent" : "own";
   const servingTeamLabel = servingTeam === "home" ? teamNames.home : teamNames.away;
+  const receivingTeamLabel = servingTeam === "home" ? teamNames.away : teamNames.home;
+  const shouldEnableServeDrawing = rallyStatus === "waiting_serve" && (!serveTrajectory || serveDrawOpen);
   const interactionMode: "attack" | "serve" | null =
-    attackDrawState ? "attack" : serveDrawOpen && rallyStatus === "waiting_serve" ? "serve" : null;
+    attackDrawState ? "attack" : shouldEnableServeDrawing ? "serve" : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -205,12 +217,13 @@ export function FullCourt({
   };
 
   const handlePlayerAttack = (team: "own" | "opponent", position: CourtPosition, player?: Player | null) => {
-    if (rallyStatus !== "in_play") {
+    if (rallyStatus === "waiting_serve") {
       const markerPos = getCourtPositionCoords(position, team, courtOrientation);
       const legacyZone = toLegacyZone(getActionZoneFromPosition(markerPos, team, courtOrientation));
       onAttack(team, legacyZone);
       return;
     }
+    if (rallyStatus === "awaiting_serve_reception" && team !== receivingSide) return;
     setAttackDrawState({
       team,
       playerId: player?.id,
@@ -234,6 +247,12 @@ export function FullCourt({
     if (!attackDrawState) return;
     const actionZone = getActionZoneFromPosition(start, team, courtOrientation);
     const legacyZone = toLegacyZone(actionZone);
+    if (rallyStatus === "awaiting_serve_reception") {
+      onServeReception(team, legacyZone, start, end, attackDrawState.playerId, attackDrawState.playerRole);
+      setAttackDrawState(null);
+      setAttackDrawStart(null);
+      return;
+    }
     onAttack(team, legacyZone);
     onSpikeDraw(team, legacyZone, start, end, undefined, attackDrawState.playerId, attackDrawState.playerRole, undefined);
     setAttackDrawState(null);
@@ -261,6 +280,7 @@ export function FullCourt({
   };
 
   const isDefenseAction = (team: "own" | "opponent") => {
+    if (rallyStatus === "awaiting_serve_reception" && team === receivingSide) return true;
     if (!lastActionType || !lastActionTeam) return false;
     if (lastActionType !== "attack") return false;
     const teamId = team === "own" ? "home" : "away";
@@ -353,17 +373,6 @@ export function FullCourt({
   const clearSelectedTrajectory = () => {
     setSelectedHistoryRallyId(null);
   };
-
-  useEffect(() => {
-    if (rallyStatus === "waiting_serve") {
-      if (!serveTrajectory) {
-        setServeDrawOpen(true);
-      }
-      return;
-    }
-    setServeTrajectory(null);
-    setServeDrawOpen(false);
-  }, [rallyStatus, serveTrajectory]);
 
   const serverPlayer = getPlayerAtZone(servingSide, 1);
   const legacyZones: Zone[] = [1, 2, 3, 4, 6];
@@ -494,6 +503,15 @@ export function FullCourt({
           </div>
         </div>
       )}
+      {rallyStatus === "awaiting_serve_reception" && (
+        <div className="rally-panel">
+          <div className="serve-title">Recepción del saque - {receivingTeamLabel}</div>
+          <div className="serve-row">
+            <span className="serve-label">Paso actual:</span>
+            <span className="serve-value">Selecciona la jugadora o jugador receptor y dibuja la defensa inicial.</span>
+          </div>
+        </div>
+      )}
       {rallyStatus === "in_play" && (
         <div className="rally-panel">
           <div className="serve-title">Rally en juego</div>
@@ -541,9 +559,16 @@ export function FullCourt({
         {interactionMode === "serve" && (
           <div className="court-hint">Saque: dibuja desde el fondo de la cancha</div>
         )}
+        {rallyStatus === "awaiting_serve_reception" && !attackDrawState && (
+          <div className="court-hint">Recepción del saque: elige un receptor del equipo {receivingTeamLabel} y arrastra hacia donde fue la defensa.</div>
+        )}
         {interactionMode === "attack" && attackDrawState && (
           <div className="court-hint">
-            {isDefenseAction(attackDrawState.team) ? "Defensa" : "Ataque"}: {attackDrawState.playerName ?? "Jugador"} · arrastra para dibujar
+            {rallyStatus === "awaiting_serve_reception"
+              ? "Recepción del saque"
+              : isDefenseAction(attackDrawState.team)
+                ? "Defensa"
+                : "Ataque"}: {attackDrawState.playerName ?? "Jugador"} · arrastra para dibujar
             <button
               type="button"
               className="court-cancel"
@@ -707,9 +732,6 @@ export function FullCourt({
     </div>
   );
 }
-
-
-
 
 
 

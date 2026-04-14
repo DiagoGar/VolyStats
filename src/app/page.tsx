@@ -12,7 +12,7 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType, RallyStatus } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
@@ -297,6 +297,7 @@ export default function Page() {
     serveType,
     serveResult,
     serve,
+    rallyStatusOverride,
   }: {
     team: "own" | "opponent";
     zone: number;
@@ -310,6 +311,7 @@ export default function Page() {
     serveType?: ServeType;
     serveResult?: ServeResult;
     serve?: { start: { x: number; y: number }; end: { x: number; y: number } };
+    rallyStatusOverride?: RallyStatus;
   }) => {
     if (!currentMatch) return;
 
@@ -432,14 +434,15 @@ export default function Page() {
     const initialHomeRotation = currentMatch.homeRotations[0] || currentMatch.currentHomeRotation;
     const initialAwayRotation = currentMatch.awayRotations[0] || currentMatch.currentAwayRotation;
 
-    const nextRallyStatus =
+    const computedNextRallyStatus =
       actionType === "saque"
         ? serveResult === "en_juego"
-          ? "in_play"
+          ? "awaiting_serve_reception"
           : "waiting_serve"
         : isTerminalEvaluation
           ? "waiting_serve"
           : "in_play";
+    const nextRallyStatus = rallyStatusOverride ?? computedNextRallyStatus;
 
     const nextLastActionType =
       actionType === "saque"
@@ -486,8 +489,8 @@ export default function Page() {
         awayScore,
         servingTeam: serverChanges ? (winnerTeam as "home" | "away") : prev.servingTeam,
         rallyStatus: nextRallyStatus,
-        lastActionType: nextRallyStatus === "in_play" ? nextLastActionType : null,
-        lastActionTeam: nextRallyStatus === "in_play" ? nextLastActionTeam : null,
+        lastActionType: nextRallyStatus !== "waiting_serve" ? nextLastActionType : null,
+        lastActionTeam: nextRallyStatus !== "waiting_serve" ? nextLastActionTeam : null,
       };
     });
 
@@ -569,13 +572,13 @@ export default function Page() {
       currentMatch.lastActionTeam !== teamId;
     let inferredComplex: Complex | undefined = complex;
     if (!inferredComplex) {
-      if (currentMatch.lastActionType === "serve" && currentMatch.lastActionTeam !== teamId) {
-        inferredComplex = "K1";
-      }
       if (currentMatch.lastActionType === "attack" && currentMatch.lastActionTeam !== teamId) {
         inferredComplex = "K2";
       }
       if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam === teamId) {
+        inferredComplex = "K1";
+      }
+      if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam !== teamId) {
         inferredComplex = "K2";
       }
     }
@@ -609,6 +612,32 @@ export default function Page() {
       serveType,
       serveResult,
       serve,
+    });
+  };
+
+  const handleServeReception = (
+    team: "own" | "opponent",
+    zone: number,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    playerId?: string,
+    playerRole?: PlayerRole
+  ) => {
+    if (!currentMatch || currentMatch.rallyStatus !== "awaiting_serve_reception") return;
+    const servingSide: "own" | "opponent" = currentMatch.servingTeam === "home" ? "own" : "opponent";
+    if (team === servingSide) return;
+
+    addTrajectory(team, zone as any, start, end, "K1", playerRole, undefined, "defense");
+    addMatchAction({
+      team,
+      zone,
+      complex: "K1",
+      playerRole,
+      spike: { start, end },
+      playerId,
+      actionType: "recepcion",
+      actionKind: "dig",
+      rallyStatusOverride: "in_play",
     });
   };
 
@@ -856,6 +885,7 @@ export default function Page() {
           });
         }}
         onServe={handleServe}
+        onServeReception={handleServeReception}
         onRallyResult={handleRallyResult}
         onSpikeDraw={handleSpikeDraw}
       />
