@@ -7,6 +7,7 @@ import { DataExportImport } from "@/components/DataExportImport/DataExportImport
 import { MatchSetupFlow } from "@/components/RotationFlow/MatchSetupFlow";
 import { RotationConfigFlow } from "@/components/RotationFlow/RotationConfigFlow";
 import { RoleAssignmentFlow } from "@/components/RotationFlow/RoleAssignmentFlow";
+import { PlayerAnalysisView } from "@/components/Analysis/PlayerAnalysisView";
 import { useGameStats } from "@/hooks/useGameStats";
 import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTrajectories";
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
@@ -18,6 +19,7 @@ import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
 
 export default function Page() {
+  const [viewMode, setViewMode] = useState<"register" | "analysis">("register");
   const [isClient, setIsClient] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(() =>
     loadFromStorage<Match | null>(storageKeys.match, null)
@@ -792,7 +794,37 @@ export default function Page() {
   // Una vez configurado todo, mostrar pantalla de análisis
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setViewMode("register")}
+            style={{
+              padding: "8px 16px",
+              background: viewMode === "register" ? "#1f6feb" : "#dbe7ff",
+              color: viewMode === "register" ? "white" : "#1f3b6d",
+              border: "none",
+              borderRadius: "999px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Registro
+          </button>
+          <button
+            onClick={() => setViewMode("analysis")}
+            style={{
+              padding: "8px 16px",
+              background: viewMode === "analysis" ? "#0f766e" : "#d9f6f2",
+              color: viewMode === "analysis" ? "white" : "#115e59",
+              border: "none",
+              borderRadius: "999px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Analisis
+          </button>
+        </div>
         <button
           onClick={handleBackToSetup}
           style={{
@@ -804,7 +836,7 @@ export default function Page() {
             cursor: "pointer",
           }}
         >
-          ← Volver a configuración
+          Volver a configuracion
         </button>
       </div>
 
@@ -855,42 +887,48 @@ export default function Page() {
         </div>
       </div>
 
-      <Court
-        stats={stats}
-        trajectories={trajectories}
-        trajectoryHistory={history}
-        roleAssignments={roleAssignments}
-        servingTeam={currentMatch.servingTeam}
-        teamNames={{ home: currentMatch.homeTeam.name, away: currentMatch.awayTeam.name }}
-        rallyStatus={currentMatch.rallyStatus ?? "waiting_serve"}
-        lastActionType={currentMatch.lastActionType ?? null}
-        lastActionTeam={currentMatch.lastActionTeam ?? null}
-        onAttack={handleAttack}
-        onToggleMode={toggleMode}
-        onReset={() => {
-          resetStats();
-          resetTrajectories();
-          setCurrentMatch((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              actions: [],
-              homeScore: 0,
-              awayScore: 0,
-              currentSet: 1,
-              rallyStatus: "waiting_serve",
-              lastActionType: null,
-              lastActionTeam: null,
-            };
-          });
-        }}
-        onServe={handleServe}
-        onServeReception={handleServeReception}
-        onRallyResult={handleRallyResult}
-        onSpikeDraw={handleSpikeDraw}
-      />
+      {viewMode === "register" ? (
+        <>
+          <Court
+            stats={stats}
+            trajectories={trajectories}
+            trajectoryHistory={history}
+            roleAssignments={roleAssignments}
+            servingTeam={currentMatch.servingTeam}
+            teamNames={{ home: currentMatch.homeTeam.name, away: currentMatch.awayTeam.name }}
+            rallyStatus={currentMatch.rallyStatus ?? "waiting_serve"}
+            lastActionType={currentMatch.lastActionType ?? null}
+            lastActionTeam={currentMatch.lastActionTeam ?? null}
+            onAttack={handleAttack}
+            onToggleMode={toggleMode}
+            onReset={() => {
+              resetStats();
+              resetTrajectories();
+              setCurrentMatch((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  actions: [],
+                  homeScore: 0,
+                  awayScore: 0,
+                  currentSet: 1,
+                  rallyStatus: "waiting_serve",
+                  lastActionType: null,
+                  lastActionTeam: null,
+                };
+              });
+            }}
+            onServe={handleServe}
+            onServeReception={handleServeReception}
+            onRallyResult={handleRallyResult}
+            onSpikeDraw={handleSpikeDraw}
+          />
 
-      <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} match={currentMatch} />
+          <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} match={currentMatch} />
+        </>
+      ) : (
+        <PlayerAnalysisView match={currentMatch} roleAssignments={roleAssignments} />
+      )}
 
       <DataExportImport
         trajectories={trajectories}

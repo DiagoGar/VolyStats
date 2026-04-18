@@ -1,0 +1,289 @@
+import type {
+  AnalysisContactPoint,
+  AnalysisHeatmapCell,
+  AnalysisTeamSide,
+  AttackCone,
+  AttackTrend,
+  DirectionStat,
+  PlayerAnalysis,
+  ReceptionQuality,
+} from "@/types/analysis";
+import type { Action, ActionEvaluation, ActionZone, Match, Player } from "@/types/volley-model";
+import { getActionZoneFromPosition } from "@/utils/courtGeometry";
+
+const ATTACK_SUCCESS_EVALUATIONS = new Set<ActionEvaluation>(["#", "++", "+"]);
+const RECEPTION_LABELS: Record<ReceptionQuality, string> = {
+  perfecta: "Perfecta",
+  positiva: "Positiva",
+  negativa: "Negativa",
+};
+const ATTACK_LABELS: Record<AttackTrend, string> = {
+  linea: "Linea",
+  cruzada: "Cruzada",
+  corte: "Corte",
+};
+
+const percentage = (value: number, total: number) => (total === 0 ? 0 : Math.round((value / total) * 100));
+
+const averagePoint = (points: Array<{ x: number; y: number }>) => ({
+  x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+  y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+});
+
+const getPlayerLookup = (match: Match) => {
+  const players = [...match.homeTeam.players, ...match.awayTeam.players];
+  return new Map(players.map((player) => [player.id, player]));
+};
+
+const getPlayerTeamSide = (match: Match, player: Player): AnalysisTeamSide =>
+  match.homeTeam.players.some((candidate) => candidate.id === player.id) ? "own" : "opponent";
+
+const normalizeRotation = (action: Action) => {
+  const rotationNumber = action.context?.rotationSnapshot?.currentRotationNumber;
+  return typeof rotationNumber === "number" ? `R${rotationNumber + 1}` : "Sin rotacion";
+};
+
+const normalizeZone = (action: Action) => {
+  if (action.spike?.start && action.team) {
+    const side: AnalysisTeamSide = action.team === "home" ? "own" : "opponent";
+    return getActionZoneFromPosition(action.spike.start, side, "normal");
+  }
+  return action.context?.zone ?? action.zone;
+};
+
+const inferAttackTrend = (action: Action, teamSide: AnalysisTeamSide): AttackTrend => {
+  if (!action.spike) return "corte";
+
+  const startZone = getActionZoneFromPosition(action.spike.start, teamSide, "normal");
+  const targetSide: AnalysisTeamSide = teamSide === "own" ? "opponent" : "own";
+  const targetZone = getActionZoneFromPosition(action.spike.end, targetSide, "normal");
+
+  if (startZone === 4) {
+    if (targetZone === 1 || targetZone === 2) return "cruzada";
+    if (targetZone === 5 || targetZone === 4) return "linea";
+    return "corte";
+  }
+
+  if (startZone === 2) {
+    if (targetZone === 4 || targetZone === 5) return "cruzada";
+    if (targetZone === 1 || targetZone === 2) return "linea";
+    return "corte";
+  }
+
+  if (targetZone === 3 || targetZone === 6) return "corte";
+
+  const deltaX = Math.abs(action.spike.end.x - action.spike.start.x);
+  return deltaX < 0.13 ? "linea" : "cruzada";
+};
+
+const inferReceptionQuality = (action: Action, teamSide: AnalysisTeamSide): ReceptionQuality => {
+  if (action.evaluation) {
+    if (action.evaluation === "#" || action.evaluation === "++") return "perfecta";
+    if (action.evaluation === "+" || action.evaluation === "/") return "positiva";
+    return "negativa";
+  }
+
+  if (!action.spike) return "positiva";
+
+  const target = teamSide === "own" ? { x: 0.62, y: 0.66 } : { x: 0.38, y: 0.34 };
+  const distance = Math.hypot(action.spike.end.x - target.x, action.spike.end.y - target.y);
+
+  if (distance <= 0.14) return "perfecta";
+  if (distance <= 0.24) return "positiva";
+  return "negativa";
+};
+
+const projectRayToBounds = (origin: { x: number; y: number }, angle: number) => {
+  const dx = Math.cos(angle);
+  const dy = -Math.sin(angle);
+  const candidates = [
+    dx > 0 ? (1 - origin.x) / dx : Number.POSITIVE_INFINITY,
+    dx < 0 ? (0 - origin.x) / dx : Number.POSITIVE_INFINITY,
+    dy > 0 ? (1 - origin.y) / dy : Number.POSITIVE_INFINITY,
+    dy < 0 ? (0 - origin.y) / dy : Number.POSITIVE_INFINITY,
+  ].filter((value) => Number.isFinite(value) && value > 0);
+
+  const travel = Math.min(...candidates);
+  return {
+    x: origin.x + dx * travel,
+    y: origin.y + dy * travel,
+  };
+};
+
+const buildAttackCone = (actions: Action[]): AttackCone | null => {
+  if (actions.length < 2 || !actions.every((action) => action.spike)) return null;
+
+  const starts = actions.map((action) => action.spike!.start);
+  const origin = averagePoint(starts);
+  const angles = actions.map((action) => action.spike!.angle);
+  const minAngle = Math.min(...angles);
+  const maxAngle = Math.max(...angles);
+
+  return {
+    origin,
+    left: projectRayToBounds(origin, minAngle),
+    right: projectRayToBounds(origin, maxAngle),
+  };
+};
+
+const buildHeatmap = (actions: Action[], teamSide: AnalysisTeamSide): AnalysisHeatmapCell[] => {
+  const zones: ActionZone[] = [1, 2, 3, 4, 5, 6];
+  const counts = new Map<ActionZone, number>(zones.map((zone) => [zone, 0]));
+
+  actions.forEach((action) => {
+    const zone = action.spike?.start
+      ? getActionZoneFromPosition(action.spike.start, teamSide, "normal")
+      : action.context?.zone ?? action.zone;
+    counts.set(zone, (counts.get(zone) ?? 0) + 1);
+  });
+
+  const max = Math.max(...Array.from(counts.values()), 0);
+  return zones.map((zone) => ({
+    zone,
+    count: counts.get(zone) ?? 0,
+    intensity: max === 0 ? 0 : (counts.get(zone) ?? 0) / max,
+  }));
+};
+
+const buildDirectionStats = (actions: Action[], teamSide: AnalysisTeamSide): DirectionStat[] => {
+  const groups = new Map<AttackTrend, Action[]>();
+
+  actions.forEach((action) => {
+    const trend = inferAttackTrend(action, teamSide);
+    groups.set(trend, [...(groups.get(trend) ?? []), action]);
+  });
+
+  return (["linea", "cruzada", "corte"] as AttackTrend[]).map((trend) => {
+    const items = groups.get(trend) ?? [];
+    const successCount = items.filter((action) => action.evaluation && ATTACK_SUCCESS_EVALUATIONS.has(action.evaluation)).length;
+    return {
+      key: trend,
+      label: ATTACK_LABELS[trend],
+      total: items.length,
+      rate: percentage(items.length, actions.length),
+      successRate: percentage(successCount, items.length),
+    };
+  });
+};
+
+const buildContactPoints = (actions: Action[], kind: "attack" | "reception"): AnalysisContactPoint[] =>
+  actions
+    .filter((action) => action.spike)
+    .map((action) => ({
+      id: action.id,
+      kind,
+      x: action.spike!.start.x,
+      y: action.spike!.start.y,
+    }));
+
+const buildContextStats = (
+  actions: Action[],
+  groupBy: (action: Action) => string,
+  labelBy: (key: string) => string = (key) => key
+) => {
+  const groups = new Map<string, Action[]>();
+
+  actions.forEach((action) => {
+    const key = groupBy(action);
+    groups.set(key, [...(groups.get(key) ?? []), action]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([key, items]) => {
+      const successCount = items.filter((action) => action.evaluation && ATTACK_SUCCESS_EVALUATIONS.has(action.evaluation)).length;
+      return {
+        key,
+        label: labelBy(key),
+        total: items.length,
+        successRate: percentage(successCount, items.length),
+      };
+    })
+    .sort((left, right) => right.total - left.total);
+};
+
+export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnalysis | null => {
+  const players = getPlayerLookup(match);
+  const player = players.get(playerId);
+  if (!player) return null;
+
+  const teamSide = getPlayerTeamSide(match, player);
+  const playerActions = match.actions.filter((action) => action.playerId === playerId);
+  const attackActions = playerActions.filter((action) => action.actionType === "ataque" && action.spike);
+  const receptionActions = playerActions.filter((action) => action.actionType === "recepcion" && action.spike);
+  const attackSuccessCount = attackActions.filter((action) => action.evaluation && ATTACK_SUCCESS_EVALUATIONS.has(action.evaluation)).length;
+  const attackTrends = buildDirectionStats(attackActions, teamSide);
+  const dominantTrend = [...attackTrends].sort((left, right) => right.total - left.total)[0] ?? null;
+  const receptionHeatmap = buildHeatmap(receptionActions, teamSide);
+
+  const receptionQualityTotals: Record<ReceptionQuality, number> = {
+    perfecta: 0,
+    positiva: 0,
+    negativa: 0,
+  };
+
+  receptionActions.forEach((action) => {
+    receptionQualityTotals[inferReceptionQuality(action, teamSide)] += 1;
+  });
+
+  const receptionQualities = (["perfecta", "positiva", "negativa"] as ReceptionQuality[]).map((quality) => ({
+    key: quality,
+    label: RECEPTION_LABELS[quality],
+    total: receptionQualityTotals[quality],
+    rate: percentage(receptionQualityTotals[quality], receptionActions.length),
+  }));
+
+  const dominantQuality =
+    (["perfecta", "positiva", "negativa"] as ReceptionQuality[]).sort(
+      (left, right) => receptionQualityTotals[right] - receptionQualityTotals[left]
+    )[0] ?? null;
+
+  return {
+    player,
+    match,
+    teamSide,
+    attack: {
+      total: attackActions.length,
+      successRate: percentage(attackSuccessCount, attackActions.length),
+      trends: attackTrends,
+      dominantTrend: dominantTrend && dominantTrend.total > 0 ? dominantTrend : null,
+      cone: buildAttackCone(attackActions),
+      trajectories: attackActions.map((action) => ({
+        id: action.id,
+        kind: "attack" as const,
+        start: action.spike!.start,
+        end: action.spike!.end,
+        evaluation: action.evaluation,
+        complex: action.complex,
+        direction: inferAttackTrend(action, teamSide),
+      })),
+      contactPoints: buildContactPoints(attackActions, "attack"),
+    },
+    reception: {
+      total: receptionActions.length,
+      qualities: receptionQualities,
+      dominantQuality: receptionActions.length > 0 ? dominantQuality : null,
+      heatmap: receptionHeatmap,
+      trajectories: receptionActions.map((action) => ({
+        id: action.id,
+        kind: "reception" as const,
+        start: action.spike!.start,
+        end: action.spike!.end,
+        evaluation: action.evaluation,
+        complex: action.complex,
+      })),
+      contactPoints: buildContactPoints(receptionActions, "reception"),
+    },
+    context: {
+      byRotation: buildContextStats(playerActions, normalizeRotation),
+      byComplex: buildContextStats(
+        playerActions.filter((action) => action.complex),
+        (action) => action.complex ?? "Sin complejo"
+      ),
+      byZone: buildContextStats(
+        playerActions,
+        (action) => String(normalizeZone(action)),
+        (key) => `Zona ${key}`
+      ),
+    },
+  };
+};
