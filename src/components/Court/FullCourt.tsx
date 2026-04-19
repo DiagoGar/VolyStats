@@ -394,7 +394,11 @@ export function FullCourt({
       const coords = getCourtPositionCoords(position, team, courtOrientation);
       const isSelected = attackDrawState?.position === position && attackDrawState?.team === team;
       const value = getValueForPosition(team, position);
-      const label = player?.name ?? "Sin asignar";
+      const label = player?.name?.trim()
+        ? player.name
+        : typeof player?.number === "number" && player.number > 0
+          ? `#${player.number}`
+          : "Sin asignar";
 
       return (
         <button
@@ -404,7 +408,6 @@ export function FullCourt({
           onClick={() => handlePlayerAttack(team, position, player)}
           type="button"
         >
-          <span className="player-zone">Z{position}</span>
           <span className="player-name">{label}</span>
           <span className="player-value">{value}</span>
         </button>
@@ -732,6 +735,4 @@ export function FullCourt({
     </div>
   );
 }
-
-
 

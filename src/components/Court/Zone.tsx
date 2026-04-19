@@ -49,7 +49,11 @@ export function ZoneButton({
             onPlayerClick?.(zone, player);
           }}
         >
-          {player.name}
+          {player.name?.trim()
+            ? player.name
+            : typeof player.number === "number" && player.number > 0
+              ? `#${player.number}`
+              : "Sin asignar"}
         </button>
       )}
       {value !== undefined && (

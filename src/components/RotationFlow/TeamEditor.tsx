@@ -25,6 +25,32 @@ interface TeamEditorProps {
   isCreatingNew: boolean;
 }
 
+interface PlayerFormState {
+  id: string;
+  numberInput: string;
+  name: string;
+  primaryRole: PlayerRole;
+}
+
+const normalizePlayer = (player: Player): Player => ({
+  ...player,
+  number: Number(player.number) || 0,
+});
+
+const createEmptyPlayerForm = (): PlayerFormState => ({
+  id: "",
+  numberInput: "",
+  name: "",
+  primaryRole: "zaguero",
+});
+
+const createPlayerFormFromPlayer = (player: Player): PlayerFormState => ({
+  id: player.id,
+  numberInput: player.number > 0 ? String(player.number) : "",
+  name: player.name,
+  primaryRole: player.primaryRole,
+});
+
 export function TeamEditor({
   team,
   onSaveTeam,
@@ -33,29 +59,34 @@ export function TeamEditor({
 }: TeamEditorProps) {
   const [teamName, setTeamName] = useState(team?.name || "");
   const [teamColor, setTeamColor] = useState(team?.color || "#667eea");
-  const [players, setPlayers] = useState<Player[]>(team?.players || []);
+  const [players, setPlayers] = useState<Player[]>(() =>
+    (team?.players || []).map(normalizePlayer)
+  );
   const [editingPlayerIndex, setEditingPlayerIndex] = useState<number | null>(null);
-  const [newPlayer, setNewPlayer] = useState<Player>({
-    id: "",
-    number: 0,
-    name: "",
-    primaryRole: "zaguero",
-  });
+  const [newPlayer, setNewPlayer] = useState<PlayerFormState>(createEmptyPlayerForm);
 
   const handleAddPlayer = () => {
-    if (!newPlayer.number) {
-      alert("El número es obligatorio");
+    const parsedNumber = Number.parseInt(newPlayer.numberInput, 10);
+
+    if (!Number.isInteger(parsedNumber) || parsedNumber <= 0) {
+      alert("El numero es obligatorio");
       return;
     }
 
-    if (players.some((p) => p.number === newPlayer.number)) {
-      alert("El número ya existe");
+    const duplicatedNumber = players.some(
+      (player, index) => player.number === parsedNumber && index !== editingPlayerIndex
+    );
+
+    if (duplicatedNumber) {
+      alert("El numero ya existe");
       return;
     }
 
     const player: Player = {
-      ...newPlayer,
-      id: crypto.randomUUID(),
+      id: newPlayer.id || crypto.randomUUID(),
+      number: parsedNumber,
+      name: newPlayer.name.trim(),
+      primaryRole: newPlayer.primaryRole,
     };
 
     if (editingPlayerIndex !== null) {
@@ -67,12 +98,7 @@ export function TeamEditor({
       setPlayers([...players, player]);
     }
 
-    setNewPlayer({
-      id: "",
-      number: 0,
-      name: "",
-      primaryRole: "zaguero",
-    });
+    setNewPlayer(createEmptyPlayerForm());
   };
 
   const handleRemovePlayer = (index: number) => {
@@ -80,7 +106,7 @@ export function TeamEditor({
   };
 
   const handleEditPlayer = (index: number) => {
-    setNewPlayer(players[index]);
+    setNewPlayer(createPlayerFormFromPlayer(players[index]));
     setEditingPlayerIndex(index);
   };
 
@@ -93,7 +119,7 @@ export function TeamEditor({
     const updatedTeam: Team = {
       id: team?.id || crypto.randomUUID(),
       name: teamName,
-      players,
+      players: players.map(normalizePlayer),
       color: teamColor,
       createdAt: team?.createdAt || Date.now(),
     };
@@ -138,11 +164,11 @@ export function TeamEditor({
               type="number"
               min="1"
               max="99"
-              value={newPlayer.number || ""}
+              value={newPlayer.numberInput}
               onChange={(e) =>
-                setNewPlayer({ ...newPlayer, number: parseInt(e.target.value) || 0 })
+                setNewPlayer({ ...newPlayer, numberInput: e.target.value })
               }
-              placeholder="Nº"
+              placeholder="Nro"
               className="number-input"
             />
             <input
@@ -168,22 +194,17 @@ export function TeamEditor({
               className="add-btn"
               onClick={handleAddPlayer}
             >
-              {editingPlayerIndex !== null ? "✓ Guardar" : "+ Agregar"}
+              {editingPlayerIndex !== null ? "Guardar" : "+ Agregar"}
             </button>
             {editingPlayerIndex !== null && (
               <button
                 className="cancel-btn"
                 onClick={() => {
                   setEditingPlayerIndex(null);
-                  setNewPlayer({
-                    id: "",
-                    number: 0,
-                    name: "",
-                    primaryRole: "zaguero",
-                  });
+                  setNewPlayer(createEmptyPlayerForm());
                 }}
               >
-                ✕ Cancelar
+                Cancelar
               </button>
             )}
           </div>

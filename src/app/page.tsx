@@ -670,10 +670,22 @@ export default function Page() {
     setCurrentMatch((prev) => {
       if (!prev) return prev;
 
+      const nextActions = [...prev.actions];
+      const latestAction = nextActions[nextActions.length - 1];
+
+      if (latestAction && latestAction.actionType === "ataque") {
+        const latestActionTeam = latestAction.team ?? (latestAction.teamId === prev.homeTeam.id ? "home" : "away");
+        nextActions[nextActions.length - 1] = {
+          ...latestAction,
+          evaluation: latestActionTeam === winnerTeam ? "#" : "--",
+        };
+      }
+
       if (hasSetWinner) {
         const nextSet = prev.currentSet + 1;
         return {
           ...prev,
+          actions: nextActions,
           homeScore: 0,
           awayScore: 0,
           currentSet: nextSet,
@@ -691,6 +703,7 @@ export default function Page() {
 
       return {
         ...prev,
+        actions: nextActions,
         homeScore,
         awayScore,
         servingTeam: serverChanges ? winnerTeam : prev.servingTeam,
