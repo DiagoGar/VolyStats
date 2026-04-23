@@ -388,6 +388,7 @@ export interface Match {
 // ============================================================================
 export interface SubstitutionEvent {
   id: string;
+  type: 'substitution' | 'libero_swap';
   teamId: string;
   outPlayerId: string;
   inPlayerId: string;

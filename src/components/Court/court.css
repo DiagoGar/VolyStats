@@ -207,6 +207,51 @@
   padding: 2px 8px;
 }
 
+.serve-row--substitution {
+  align-items: flex-start;
+}
+
+.substitution-panel {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(194, 136, 46, 0.28);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.substitution-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.substitution-grid select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d3c2a0;
+  background: #fffdf7;
+  color: #3b2f1c;
+  font-size: 0.88rem;
+}
+
+.substitution-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #6b4b1a;
+}
+
+.substitution-message {
+  margin: 0;
+  color: #9f1239;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .serve-option.active {
   border-color: #f0a93b;
   background: #ffe6b3;

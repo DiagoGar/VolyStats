@@ -4,7 +4,7 @@ import type { GameTrajectoryHistory, SpikeTrajectoriesByZone } from "@/hooks/use
 import { useState, useRef, useEffect } from "react";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
 import { drawPersistentTrajectories, drawOrigin, drawLine, getNormalizedPos } from "@/utils/canvasUtils";
-import type { CourtPosition, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
+import type { CourtPosition, Match, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
 import {
   getActionZoneFromPosition,
   getCourtPositionCoords,
@@ -23,6 +23,7 @@ interface FullCourtProps {
     opponent: SpikeTrajectoriesByZone;
   };
   trajectoryHistory: GameTrajectoryHistory;
+  match: Match;
   roleAssignments: {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
@@ -35,6 +36,12 @@ interface FullCourtProps {
   rallyStatus: RallyStatus;
   lastActionType?: "serve" | "attack" | "defense" | null;
   lastActionTeam?: "home" | "away" | null;
+  onSubstitute: (
+    teamType: "home" | "away",
+    position: CourtPosition,
+    outPlayerId: string,
+    inPlayerId: string
+  ) => { ok: true } | { ok: false; message: string };
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onServe: (
@@ -68,12 +75,14 @@ export function FullCourt({
   stats,
   trajectories,
   trajectoryHistory,
+  match,
   roleAssignments,
   servingTeam,
   teamNames,
   rallyStatus,
   lastActionType,
   lastActionTeam,
+  onSubstitute,
   onAttack,
   onToggleMode,
   onServe,
@@ -104,6 +113,11 @@ export function FullCourt({
   const [isServeDrawing, setIsServeDrawing] = useState(false);
   const [serveDrawStart, setServeDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [serveDrawEnd, setServeDrawEnd] = useState<{ x: number; y: number } | null>(null);
+  const [substitutionOpen, setSubstitutionOpen] = useState(false);
+  const [substitutionTeam, setSubstitutionTeam] = useState<"home" | "away">("home");
+  const [substitutionOutPlayerId, setSubstitutionOutPlayerId] = useState("");
+  const [substitutionInPlayerId, setSubstitutionInPlayerId] = useState("");
+  const [substitutionMessage, setSubstitutionMessage] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionCanvasRef = useRef<HTMLCanvasElement>(null);
   const historyRallies = trajectoryHistory?.rallies ?? [];
@@ -200,6 +214,13 @@ export function FullCourt({
     return () => window.removeEventListener("resize", resize);
   }, []);
 
+  useEffect(() => {
+    if (rallyStatus !== "waiting_serve" && substitutionOpen) {
+      setSubstitutionOpen(false);
+      setSubstitutionMessage(null);
+    }
+  }, [rallyStatus, substitutionOpen]);
+
   const getValue = (team: "own" | "opponent", zone: Zone) => {
     const teamStats = stats[team];
     if (teamStats.mode === "cantidad") {
@@ -215,6 +236,25 @@ export function FullCourt({
     const assignments = team === "own" ? roleAssignments.homeTeamAssignments : roleAssignments.awayTeamAssignments;
     return assignments[zone as CourtPosition] || null;
   };
+
+  const getAssignmentsForTeam = (teamType: "home" | "away") =>
+    roleAssignments
+      ? teamType === "home"
+        ? roleAssignments.homeTeamAssignments
+        : roleAssignments.awayTeamAssignments
+      : null;
+
+  const teamRoster = substitutionTeam === "home" ? match.homeTeam.players : match.awayTeam.players;
+  const substitutionAssignments = getAssignmentsForTeam(substitutionTeam);
+  const substitutionOnCourt = substitutionAssignments ? Object.values(substitutionAssignments) : [];
+  const substitutionBench = teamRoster.filter(
+    (player) => !substitutionOnCourt.some((onCourtPlayer) => onCourtPlayer.id === player.id)
+  );
+  const substitutionPosition = substitutionAssignments
+    ? ([1, 2, 3, 4, 5, 6] as CourtPosition[]).find(
+        (position) => substitutionAssignments[position]?.id === substitutionOutPlayerId
+      ) ?? null
+    : null;
 
   const handlePlayerAttack = (team: "own" | "opponent", position: CourtPosition, player?: Player | null) => {
     if (rallyStatus === "waiting_serve") {
@@ -374,6 +414,45 @@ export function FullCourt({
     setSelectedHistoryRallyId(null);
   };
 
+  const handleOpenSubstitution = () => {
+    setSubstitutionOpen((prev) => !prev);
+    setSubstitutionMessage(null);
+    setSubstitutionOutPlayerId("");
+    setSubstitutionInPlayerId("");
+    setSubstitutionTeam(servingTeam === "home" ? "home" : "away");
+  };
+
+  const handleTeamChange = (team: "home" | "away") => {
+    setSubstitutionTeam(team);
+    setSubstitutionOutPlayerId("");
+    setSubstitutionInPlayerId("");
+    setSubstitutionMessage(null);
+  };
+
+  const handleConfirmSubstitution = () => {
+    if (!substitutionPosition || !substitutionOutPlayerId || !substitutionInPlayerId) {
+      setSubstitutionMessage("Selecciona equipo, quien sale y quien entra.");
+      return;
+    }
+
+    const result = onSubstitute(
+      substitutionTeam,
+      substitutionPosition,
+      substitutionOutPlayerId,
+      substitutionInPlayerId
+    );
+
+    if (!result.ok) {
+      setSubstitutionMessage(result.message);
+      return;
+    }
+
+    setSubstitutionMessage(null);
+    setSubstitutionInPlayerId("");
+    setSubstitutionOutPlayerId("");
+    setSubstitutionOpen(false);
+  };
+
   const serverPlayer = getPlayerAtZone(servingSide, 1);
   const legacyZones: Zone[] = [1, 2, 3, 4, 6];
   const getValueForPosition = (team: "own" | "opponent", position: CourtPosition) => {
@@ -504,6 +583,88 @@ export function FullCourt({
               </button>
             </div>
           </div>
+          <div className="serve-row serve-row--substitution">
+            <span className="serve-label">Plantel:</span>
+            <div className="serve-options">
+              <button
+                type="button"
+                className={`serve-option ${substitutionOpen ? "active" : ""}`}
+                onClick={handleOpenSubstitution}
+              >
+                Sustitucion
+              </button>
+            </div>
+          </div>
+          {substitutionOpen && (
+            <div className="substitution-panel">
+              <div className="substitution-grid">
+                <div className="filter-group">
+                  <label>Equipo:</label>
+                  <select
+                    value={substitutionTeam}
+                    onChange={(e) => handleTeamChange(e.target.value as "home" | "away")}
+                  >
+                    <option value="home">{teamNames.home}</option>
+                    <option value="away">{teamNames.away}</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>Sale:</label>
+                  <select
+                    value={substitutionOutPlayerId}
+                    onChange={(e) => {
+                      setSubstitutionOutPlayerId(e.target.value);
+                      setSubstitutionInPlayerId("");
+                      setSubstitutionMessage(null);
+                    }}
+                  >
+                    <option value="">Seleccionar</option>
+                    {substitutionOnCourt.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.name?.trim() ? player.name : `#${player.number}`} · #{player.number}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>Entra:</label>
+                  <select
+                    value={substitutionInPlayerId}
+                    onChange={(e) => {
+                      setSubstitutionInPlayerId(e.target.value);
+                      setSubstitutionMessage(null);
+                    }}
+                  >
+                    <option value="">Seleccionar</option>
+                    {substitutionBench.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.name?.trim() ? player.name : `#${player.number}`} · #{player.number}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="substitution-summary">
+                <span>
+                  Posicion: {substitutionPosition ? `Z${substitutionPosition}` : "-"}
+                </span>
+                <span>
+                  Banco disponible: {substitutionBench.length}
+                </span>
+              </div>
+              {substitutionMessage && <p className="substitution-message">{substitutionMessage}</p>}
+              <div className="serve-options">
+                <button
+                  type="button"
+                  className="serve-option active"
+                  onClick={handleConfirmSubstitution}
+                  disabled={!substitutionOutPlayerId || !substitutionInPlayerId}
+                >
+                  Confirmar cambio
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {rallyStatus === "awaiting_serve_reception" && (
@@ -735,4 +896,3 @@ export function FullCourt({
     </div>
   );
 }
-

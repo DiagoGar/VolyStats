@@ -3,13 +3,14 @@ import type { Zone } from "@/types/stats";
 import type { GameStats } from "@/hooks/useGameStats";
 import type { GameTrajectories, GameTrajectoryHistory } from "@/hooks/useGameTrajectories";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
-import type { CourtPosition, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
+import type { CourtPosition, Match, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
 import "./court.css";
 
 interface Props {
   stats: GameStats;
   trajectories: GameTrajectories;
   trajectoryHistory: GameTrajectoryHistory;
+  match: Match;
   roleAssignments: {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
@@ -22,6 +23,12 @@ interface Props {
   rallyStatus: RallyStatus;
   lastActionType?: "serve" | "attack" | "defense" | null;
   lastActionTeam?: "home" | "away" | null;
+  onSubstitute: (
+    teamType: "home" | "away",
+    position: CourtPosition,
+    outPlayerId: string,
+    inPlayerId: string
+  ) => { ok: true } | { ok: false; message: string };
   onAttack: (team: "own" | "opponent", zone: Zone) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onReset: () => void;
@@ -56,12 +63,14 @@ export function Court({
   stats,
   trajectories,
   trajectoryHistory,
+  match,
   roleAssignments,
   servingTeam,
   teamNames,
   rallyStatus,
   lastActionType,
   lastActionTeam,
+  onSubstitute,
   onAttack,
   onToggleMode,
   onReset,
@@ -77,12 +86,14 @@ export function Court({
           stats={stats}
           trajectories={trajectories}
           trajectoryHistory={trajectoryHistory}
+          match={match}
           roleAssignments={roleAssignments}
           servingTeam={servingTeam}
           teamNames={teamNames}
           rallyStatus={rallyStatus}
           lastActionType={lastActionType}
           lastActionTeam={lastActionTeam}
+          onSubstitute={onSubstitute}
           onAttack={onAttack}
           onToggleMode={onToggleMode}
           onServe={onServe}

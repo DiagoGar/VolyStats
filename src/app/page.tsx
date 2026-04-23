@@ -189,11 +189,13 @@ export default function Page() {
     outPlayer: Player,
     inPlayer: Player,
     position: CourtPosition,
-    reason: string
+    reason: string,
+    type: "substitution" | "libero_swap" = "substitution"
   ): SubstitutionEvent | null => {
     if (!currentMatch) return null;
     return {
       id: crypto.randomUUID(),
+      type,
       teamId: teamType === "home" ? currentMatch.homeTeam.id : currentMatch.awayTeam.id,
       outPlayerId: outPlayer.id,
       inPlayerId: inPlayer.id,
@@ -230,7 +232,7 @@ export default function Page() {
       if (!incoming) return currentAssignments;
       const outgoing = currentAssignments[position];
       if (!outgoing || outgoing.id === incoming.id) return currentAssignments;
-      const event = buildSubstitutionEvent(teamType, outgoing, incoming, position, ruleReason);
+      const event = buildSubstitutionEvent(teamType, outgoing, incoming, position, ruleReason, "libero_swap");
       if (event) events.push(event);
       return { ...currentAssignments, [position]: incoming };
     };
@@ -278,6 +280,94 @@ export default function Page() {
     }
 
     return { assignments: nextAssignments, events };
+  };
+
+  const getTeamAssignments = (teamType: "home" | "away") => {
+    if (!roleAssignments) return null;
+    return teamType === "home" ? roleAssignments.homeTeamAssignments : roleAssignments.awayTeamAssignments;
+  };
+
+  const getBenchPlayers = (teamType: "home" | "away") => {
+    if (!currentMatch || !roleAssignments) return [];
+    const teamPlayers = teamType === "home" ? currentMatch.homeTeam.players : currentMatch.awayTeam.players;
+    const assignments = getTeamAssignments(teamType);
+    if (!assignments) return [];
+    const onCourtIds = new Set(Object.values(assignments).map((player) => player.id));
+    return teamPlayers.filter((player) => !onCourtIds.has(player.id));
+  };
+
+  const handleManualSubstitution = (
+    teamType: "home" | "away",
+    position: CourtPosition,
+    outPlayerId: string,
+    inPlayerId: string
+  ) => {
+    if (!currentMatch || !roleAssignments) return { ok: false as const, message: "No hay partido activo." };
+    if (currentMatch.rallyStatus !== "waiting_serve") {
+      return { ok: false as const, message: "Las sustituciones solo se permiten entre rallies." };
+    }
+
+    const assignments = getTeamAssignments(teamType);
+    if (!assignments) {
+      return { ok: false as const, message: "No hay rotacion activa para este equipo." };
+    }
+
+    const currentPlayer = assignments[position];
+    if (!currentPlayer || currentPlayer.id !== outPlayerId) {
+      return { ok: false as const, message: "La jugadora o jugador que sale ya no ocupa esa posicion." };
+    }
+
+    const benchPlayers = getBenchPlayers(teamType);
+    const incoming = benchPlayers.find((player) => player.id === inPlayerId);
+    if (!incoming) {
+      return { ok: false as const, message: "La jugadora o jugador que entra debe venir del banco." };
+    }
+
+    const event = buildSubstitutionEvent(teamType, currentPlayer, incoming, position, "manual", "substitution");
+    if (!event) {
+      return { ok: false as const, message: "No se pudo registrar la sustitucion." };
+    }
+
+    const nextAssignments = {
+      ...assignments,
+      [position]: incoming,
+    };
+
+    setRoleAssignments((prev) => {
+      if (!prev) return prev;
+      return teamType === "home"
+        ? { ...prev, homeTeamAssignments: nextAssignments }
+        : { ...prev, awayTeamAssignments: nextAssignments };
+    });
+
+    setCurrentMatch((prev) => {
+      if (!prev) return prev;
+      const nextRotation =
+        teamType === "home"
+          ? { ...prev.currentHomeRotation, positions: nextAssignments, updatedAt: Date.now() }
+          : { ...prev.currentAwayRotation, positions: nextAssignments, updatedAt: Date.now() };
+
+      return {
+        ...prev,
+        currentHomeRotation: teamType === "home" ? nextRotation : prev.currentHomeRotation,
+        currentAwayRotation: teamType === "away" ? nextRotation : prev.currentAwayRotation,
+        homeRotations:
+          teamType === "home"
+            ? prev.homeRotations.map((rotation, index, rotations) =>
+                index === rotations.length - 1 ? nextRotation : rotation
+              )
+            : prev.homeRotations,
+        awayRotations:
+          teamType === "away"
+            ? prev.awayRotations.map((rotation, index, rotations) =>
+                index === rotations.length - 1 ? nextRotation : rotation
+              )
+            : prev.awayRotations,
+        substitutions: [...(prev.substitutions || []), event],
+      };
+    });
+
+    return { ok: true as const };
   };
 
   const getPlayerFromTeamByZone = (team: "own" | "opponent", zone: number): Player | undefined => {
@@ -906,12 +996,14 @@ export default function Page() {
             stats={stats}
             trajectories={trajectories}
             trajectoryHistory={history}
+            match={currentMatch}
             roleAssignments={roleAssignments}
             servingTeam={currentMatch.servingTeam}
             teamNames={{ home: currentMatch.homeTeam.name, away: currentMatch.awayTeam.name }}
             rallyStatus={currentMatch.rallyStatus ?? "waiting_serve"}
             lastActionType={currentMatch.lastActionType ?? null}
             lastActionTeam={currentMatch.lastActionTeam ?? null}
+            onSubstitute={handleManualSubstitution}
             onAttack={handleAttack}
             onToggleMode={toggleMode}
             onReset={() => {
