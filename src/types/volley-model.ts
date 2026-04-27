@@ -264,6 +264,7 @@ export type ActionTypeKey =
 export type ServeType = 'flotado' | 'salto';
 export type ServeResult = 'en_juego' | 'error' | 'ace';
 export type RallyStatus = 'waiting_serve' | 'awaiting_serve_reception' | 'in_play';
+export type RallyActionFlowType = 'serve' | 'defense' | 'set' | 'attack';
 
 export interface Action {
   id: string;
@@ -372,7 +373,7 @@ export interface Match {
   currentSet: number; // 1-5 (máximo)
   servingTeam: 'home' | 'away'; // Equipo que tiene el saque actualmente
   rallyStatus: RallyStatus;
-  lastActionType?: 'serve' | 'attack' | 'defense' | null;
+  lastActionType?: RallyActionFlowType | null;
   lastActionTeam?: 'home' | 'away' | null;
   
   // Metadatos

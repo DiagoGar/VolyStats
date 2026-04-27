@@ -10,6 +10,7 @@ import type {
 } from "@/types/analysis";
 import type { Action, ActionEvaluation, ActionZone, Match, Player } from "@/types/volley-model";
 import { getActionZoneFromPosition } from "@/utils/courtGeometry";
+import { assessReceptionTarget, getIdealSetterPosition } from "@/utils/reception";
 
 const ATTACK_SUCCESS_EVALUATIONS = new Set<ActionEvaluation>(["#", "++", "+"]);
 const RECEPTION_LABELS: Record<ReceptionQuality, string> = {
@@ -77,20 +78,14 @@ const inferAttackTrend = (action: Action, teamSide: AnalysisTeamSide): AttackTre
 };
 
 const inferReceptionQuality = (action: Action, teamSide: AnalysisTeamSide): ReceptionQuality => {
-  if (action.evaluation) {
+  if (!action.spike && action.evaluation) {
     if (action.evaluation === "#" || action.evaluation === "++") return "perfecta";
     if (action.evaluation === "+" || action.evaluation === "/") return "positiva";
     return "negativa";
   }
 
   if (!action.spike) return "positiva";
-
-  const target = teamSide === "own" ? { x: 0.62, y: 0.66 } : { x: 0.38, y: 0.34 };
-  const distance = Math.hypot(action.spike.end.x - target.x, action.spike.end.y - target.y);
-
-  if (distance <= 0.14) return "perfecta";
-  if (distance <= 0.24) return "positiva";
-  return "negativa";
+  return assessReceptionTarget(action.spike.end, teamSide).quality;
 };
 
 const projectRayToBounds = (origin: { x: number; y: number }, angle: number) => {
@@ -214,6 +209,10 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
   const attackTrends = buildDirectionStats(attackActions, teamSide);
   const dominantTrend = [...attackTrends].sort((left, right) => right.total - left.total)[0] ?? null;
   const receptionHeatmap = buildHeatmap(receptionActions, teamSide);
+  const receptionReferencePoint = getIdealSetterPosition(teamSide);
+  const receptionAssessments = receptionActions
+    .filter((action) => action.spike)
+    .map((action) => assessReceptionTarget(action.spike!.end, teamSide));
 
   const receptionQualityTotals: Record<ReceptionQuality, number> = {
     perfecta: 0,
@@ -260,6 +259,16 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
     },
     reception: {
       total: receptionActions.length,
+      referencePoint: receptionReferencePoint,
+      averageDistanceToTarget:
+        receptionAssessments.reduce((sum, assessment) => sum + assessment.distanceToTarget, 0) /
+        Math.max(receptionAssessments.length, 1),
+      averageLateralOffset:
+        receptionAssessments.reduce((sum, assessment) => sum + assessment.lateralOffset, 0) /
+        Math.max(receptionAssessments.length, 1),
+      averageDepthOffset:
+        receptionAssessments.reduce((sum, assessment) => sum + assessment.depthOffset, 0) /
+        Math.max(receptionAssessments.length, 1),
       qualities: receptionQualities,
       dominantQuality: receptionActions.length > 0 ? dominantQuality : null,
       heatmap: receptionHeatmap,

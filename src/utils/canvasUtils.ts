@@ -263,7 +263,7 @@ export function drawPersistentTrajectories(
       end: { x: number; y: number };
       complex?: string;
       evaluation?: string;
-      actionType?: "attack" | "defense" | "serve";
+      actionType?: "attack" | "defense" | "serve" | "set";
     }[]
   >,
   filterComplex: string | null,
@@ -288,6 +288,8 @@ export function drawPersistentTrajectories(
             ? "#22c1ff"
             : trajectory.actionType === "serve"
               ? "#0f766e"
+              : trajectory.actionType === "set"
+                ? "#f59e0b"
               : getTrajectoryColor(trajectory.evaluation, trajectory.complex);
       }
 
@@ -308,6 +310,8 @@ export function drawPersistentTrajectories(
           ? [6, 4]
           : trajectory.actionType === "serve"
             ? [2, 6]
+            : trajectory.actionType === "set"
+              ? [10, 5]
             : []
       );
 

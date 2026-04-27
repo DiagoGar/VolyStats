@@ -132,7 +132,7 @@ export function useGameTrajectories() {
     complex?: Complex,
     playerRole?: PlayerRole,
     evaluation?: Evaluation,
-    actionType: "attack" | "defense" | "serve" = "attack"
+    actionType: "attack" | "defense" | "serve" | "set" = "attack"
   ) => {
     const spikeData = createSpikeVector(zone, start, end, complex, playerRole, evaluation, actionType);
 

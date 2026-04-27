@@ -3,7 +3,7 @@ import type { Zone } from "@/types/stats";
 import type { GameStats } from "@/hooks/useGameStats";
 import type { GameTrajectories, GameTrajectoryHistory } from "@/hooks/useGameTrajectories";
 import type { Complex, PlayerRole, Evaluation } from "@/types/spike";
-import type { CourtPosition, Match, Player, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
+import type { CourtPosition, Match, Player, RallyActionFlowType, RallyStatus, ServeResult, ServeType } from "@/types/volley-model";
 import "./court.css";
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
     away: string;
   };
   rallyStatus: RallyStatus;
-  lastActionType?: "serve" | "attack" | "defense" | null;
+  lastActionType?: RallyActionFlowType | null;
   lastActionTeam?: "home" | "away" | null;
   onSubstitute: (
     teamType: "home" | "away",
@@ -47,7 +47,7 @@ interface Props {
     playerRole?: PlayerRole
   ) => void;
   onRallyResult: (team: "own" | "opponent") => void;
-  onSpikeDraw: (
+  onRallyDraw: (
     team: "own" | "opponent",
     zone: Zone,
     start: { x: number; y: number },
@@ -77,7 +77,7 @@ export function Court({
   onServe,
   onServeReception,
   onRallyResult,
-  onSpikeDraw,
+  onRallyDraw,
 }: Props) {
   return (
     <section className="court-section">
@@ -99,7 +99,7 @@ export function Court({
           onServe={onServe}
           onServeReception={onServeReception}
           onRallyResult={onRallyResult}
-          onSpikeDraw={onSpikeDraw}
+          onRallyDraw={onRallyDraw}
         />
       </div>
 

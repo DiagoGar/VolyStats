@@ -21,7 +21,9 @@ export interface GameStats {
 }
 
 const countAttackTrajectories = (trajectories: SpikeTrajectoriesByZone, zone: Zone) =>
-  trajectories[zone].filter((spike) => spike.actionType !== "defense" && spike.actionType !== "serve").length;
+  trajectories[zone].filter(
+    (spike) => spike.actionType !== "defense" && spike.actionType !== "serve" && spike.actionType !== "set"
+  ).length;
 
 function calculateStatsFromTrajectories(trajectories: SpikeTrajectoriesByZone): MatchStats {
   const zones = { 1: 0, 2: 0, 3: 0, 4: 0, 6: 0 };
@@ -56,7 +58,9 @@ export function useGameStats(ownTrajectories: SpikeTrajectoriesByZone, opponentT
         4: manualStats.own.zones[4] + countAttackTrajectories(ownTrajectories, 4),
         6: manualStats.own.zones[6] + countAttackTrajectories(ownTrajectories, 6),
       },
-      total: manualStats.own.total + Object.values(ownTrajectories).flat().filter((spike) => spike.actionType !== "defense").length,
+      total: manualStats.own.total + Object.values(ownTrajectories).flat().filter(
+        (spike) => spike.actionType !== "defense" && spike.actionType !== "serve" && spike.actionType !== "set"
+      ).length,
       mode: manualStats.own.mode,
     },
     opponent: {
@@ -67,7 +71,9 @@ export function useGameStats(ownTrajectories: SpikeTrajectoriesByZone, opponentT
         4: manualStats.opponent.zones[4] + countAttackTrajectories(opponentTrajectories, 4),
         6: manualStats.opponent.zones[6] + countAttackTrajectories(opponentTrajectories, 6),
       },
-      total: manualStats.opponent.total + Object.values(opponentTrajectories).flat().filter((spike) => spike.actionType !== "defense").length,
+      total: manualStats.opponent.total + Object.values(opponentTrajectories).flat().filter(
+        (spike) => spike.actionType !== "defense" && spike.actionType !== "serve" && spike.actionType !== "set"
+      ).length,
       mode: manualStats.opponent.mode,
     },
   };

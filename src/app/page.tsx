@@ -13,10 +13,11 @@ import { useGameTrajectories, type GameTrajectories } from "@/hooks/useGameTraje
 import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersistentStorage";
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
-import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType, RallyStatus } from "@/types/volley-model";
+import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType, RallyActionFlowType, RallyStatus } from "@/types/volley-model";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
+import { assessReceptionTarget, getReceptionEvaluation } from "@/utils/reception";
 
 export default function Page() {
   const [viewMode, setViewMode] = useState<"register" | "analysis">("register");
@@ -536,13 +537,15 @@ export default function Page() {
           : "in_play";
     const nextRallyStatus = rallyStatusOverride ?? computedNextRallyStatus;
 
-    const nextLastActionType =
+    const nextLastActionType: RallyActionFlowType | null =
       actionType === "saque"
         ? serveResult === "en_juego"
           ? "serve"
           : null
         : actionType === "ataque"
           ? "attack"
+          : actionType === "levantamiento"
+            ? "set"
           : actionType === "recepcion"
             ? "defense"
             : null;
@@ -646,7 +649,15 @@ export default function Page() {
     addAttack(team, zone as any);
   };
 
-  const handleSpikeDraw = (
+  const inferDefenseEvaluation = (
+    team: "own" | "opponent",
+    end: { x: number; y: number }
+  ): ActionEvaluation => {
+    const teamSide = team === "own" ? "own" : "opponent";
+    return getReceptionEvaluation(assessReceptionTarget(end, teamSide).quality);
+  };
+
+  const handleRallyDraw = (
     team: "own" | "opponent",
     zone: number,
     start: { x: number; y: number },
@@ -662,6 +673,11 @@ export default function Page() {
       currentMatch.lastActionType === "attack" &&
       currentMatch.lastActionTeam !== null &&
       currentMatch.lastActionTeam !== teamId;
+    const isSet =
+      currentMatch.lastActionType === "defense" &&
+      currentMatch.lastActionTeam !== null &&
+      currentMatch.lastActionTeam === teamId;
+    const resolvedEvaluation = isDefense && !evaluation ? inferDefenseEvaluation(team, end) : evaluation;
     let inferredComplex: Complex | undefined = complex;
     if (!inferredComplex) {
       if (currentMatch.lastActionType === "attack" && currentMatch.lastActionTeam !== teamId) {
@@ -670,21 +686,21 @@ export default function Page() {
       if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam === teamId) {
         inferredComplex = "K1";
       }
-      if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam !== teamId) {
-        inferredComplex = "K2";
+      if (currentMatch.lastActionType === "set" && currentMatch.lastActionTeam === teamId) {
+        inferredComplex = "K1";
       }
     }
-    addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, evaluation, isDefense ? "defense" : "attack");
+    addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, resolvedEvaluation, isDefense ? "defense" : isSet ? "set" : "attack");
     addMatchAction({
       team,
       zone,
       complex: inferredComplex,
       playerRole,
-      evaluation,
+      evaluation: resolvedEvaluation,
       spike: { start, end },
       playerId,
-      actionType: isDefense ? "recepcion" : "ataque",
-      actionKind: isDefense ? "dig" : "spike",
+      actionType: isDefense ? "recepcion" : isSet ? "levantamiento" : "ataque",
+      actionKind: isDefense ? "dig" : isSet ? "set" : "spike",
     });
   };
 
@@ -718,13 +734,15 @@ export default function Page() {
     if (!currentMatch || currentMatch.rallyStatus !== "awaiting_serve_reception") return;
     const servingSide: "own" | "opponent" = currentMatch.servingTeam === "home" ? "own" : "opponent";
     if (team === servingSide) return;
+    const evaluation = inferDefenseEvaluation(team, end);
 
-    addTrajectory(team, zone as any, start, end, "K1", playerRole, undefined, "defense");
+    addTrajectory(team, zone as any, start, end, "K1", playerRole, evaluation, "defense");
     addMatchAction({
       team,
       zone,
       complex: "K1",
       playerRole,
+      evaluation,
       spike: { start, end },
       playerId,
       actionType: "recepcion",
@@ -1026,7 +1044,7 @@ export default function Page() {
             onServe={handleServe}
             onServeReception={handleServeReception}
             onRallyResult={handleRallyResult}
-            onSpikeDraw={handleSpikeDraw}
+            onRallyDraw={handleRallyDraw}
           />
 
           <Stats trajectories={trajectories.own} actions={currentMatch?.actions || []} match={currentMatch} />

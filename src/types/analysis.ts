@@ -63,6 +63,13 @@ export interface PlayerAnalysis {
   };
   reception: {
     total: number;
+    referencePoint: {
+      x: number;
+      y: number;
+    };
+    averageDistanceToTarget: number;
+    averageLateralOffset: number;
+    averageDepthOffset: number;
     qualities: Array<{
       key: ReceptionQuality;
       label: string;

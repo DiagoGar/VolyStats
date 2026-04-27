@@ -19,6 +19,7 @@ const courtOrientation: CourtOrientation = "normal";
 const positions: CourtPosition[] = [1, 2, 3, 4, 5, 6];
 
 const formatPercent = (value: number) => `${value}%`;
+const formatCourtValue = (value: number) => `${Math.round(value * 100)}%`;
 
 const getHeatCellStyle = (zone: CourtPosition, team: "own" | "opponent", intensity: number) => {
   const isBottom = isTeamOnBottom(team, courtOrientation);
@@ -95,6 +96,13 @@ function AnalysisOverlay({ analysis }: { analysis: PlayerAnalysis }) {
             r="1.1"
           />
         ))}
+
+        <circle
+          className="analysis-contact reception"
+          cx={analysis.reception.referencePoint.x * 100}
+          cy={analysis.reception.referencePoint.y * 100}
+          r="1.4"
+        />
       </svg>
     </>
   );
@@ -174,6 +182,27 @@ function AnalysisSidebar({ analysis }: { analysis: PlayerAnalysis | null }) {
               <span>{formatPercent(quality.rate)}</span>
             </div>
           ))}
+        </div>
+        <div className="analysis-context-group">
+          <h4>Punto de armado fijo</h4>
+          <div className="analysis-chip-row">
+            <span>Referencia</span>
+            <strong>
+              x {formatCourtValue(analysis.reception.referencePoint.x)} | y {formatCourtValue(analysis.reception.referencePoint.y)}
+            </strong>
+          </div>
+          <div className="analysis-chip-row">
+            <span>Distancia media</span>
+            <strong>{formatCourtValue(analysis.reception.averageDistanceToTarget)}</strong>
+          </div>
+          <div className="analysis-chip-row">
+            <span>Desvio lateral</span>
+            <strong>{formatCourtValue(analysis.reception.averageLateralOffset)}</strong>
+          </div>
+          <div className="analysis-chip-row">
+            <span>Desvio profundidad</span>
+            <strong>{formatCourtValue(analysis.reception.averageDepthOffset)}</strong>
+          </div>
         </div>
       </div>
 
