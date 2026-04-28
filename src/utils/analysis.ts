@@ -7,9 +7,11 @@ import type {
   DirectionStat,
   PlayerAnalysis,
   ReceptionQuality,
+  SetDistributionStat,
+  SetDistributionZone,
 } from "@/types/analysis";
 import type { Action, ActionEvaluation, ActionZone, Match, Player } from "@/types/volley-model";
-import { getActionZoneFromPosition } from "@/utils/courtGeometry";
+import { getActionZoneFromPosition, getCourtPositionCoords, inferAttackLaneFromContext } from "@/utils/courtGeometry";
 import { assessReceptionTarget, getIdealSetterPosition } from "@/utils/reception";
 
 const ATTACK_SUCCESS_EVALUATIONS = new Set<ActionEvaluation>(["#", "++", "+"]);
@@ -23,6 +25,14 @@ const ATTACK_LABELS: Record<AttackTrend, string> = {
   cruzada: "Cruzada",
   corte: "Corte",
 };
+const SET_ZONE_LABELS: Record<SetDistributionZone, string> = {
+  1: "Zona 1",
+  2: "Zona 2",
+  3: "Zona 3",
+  4: "Zona 4",
+  5: "Zona 5",
+  6: "Zona 6",
+};
 
 const percentage = (value: number, total: number) => (total === 0 ? 0 : Math.round((value / total) * 100));
 
@@ -30,6 +40,9 @@ const averagePoint = (points: Array<{ x: number; y: number }>) => ({
   x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
   y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
 });
+
+const distanceBetweenPoints = (left: { x: number; y: number }, right: { x: number; y: number }) =>
+  Math.sqrt((left.x - right.x) ** 2 + (left.y - right.y) ** 2);
 
 const getPlayerLookup = (match: Match) => {
   const players = [...match.homeTeam.players, ...match.awayTeam.players];
@@ -45,6 +58,17 @@ const normalizeRotation = (action: Action) => {
 };
 
 const normalizeZone = (action: Action) => {
+  if (action.actionType === "ataque") {
+    const teamSide: AnalysisTeamSide = action.team === "home" ? "own" : "opponent";
+    const inferredLane = inferAttackLaneFromContext({
+      position: action.position,
+      playerRole: action.playerRole,
+      contactStart: action.spike?.start,
+      team: teamSide,
+      orientation: "normal",
+    });
+    if (inferredLane) return inferredLane === 5 ? 6 : inferredLane;
+  }
   if (action.spike?.start && action.team) {
     const side: AnalysisTeamSide = action.team === "home" ? "own" : "opponent";
     return getActionZoneFromPosition(action.spike.start, side, "normal");
@@ -161,7 +185,7 @@ const buildDirectionStats = (actions: Action[], teamSide: AnalysisTeamSide): Dir
   });
 };
 
-const buildContactPoints = (actions: Action[], kind: "attack" | "reception"): AnalysisContactPoint[] =>
+const buildContactPoints = (actions: Action[], kind: "attack" | "reception" | "set"): AnalysisContactPoint[] =>
   actions
     .filter((action) => action.spike)
     .map((action) => ({
@@ -170,6 +194,86 @@ const buildContactPoints = (actions: Action[], kind: "attack" | "reception"): An
       x: action.spike!.start.x,
       y: action.spike!.start.y,
     }));
+
+const getIdealAttackPoint = (teamSide: AnalysisTeamSide, zone: SetDistributionZone) =>
+  getCourtPositionCoords(zone, teamSide, "normal");
+
+const getActionAttackZone = (action: Action, teamSide: AnalysisTeamSide): SetDistributionZone | null => {
+  const inferredLane = inferAttackLaneFromContext({
+    position: action.position,
+    playerRole: action.playerRole,
+    contactStart: action.spike?.start,
+    team: teamSide,
+    orientation: "normal",
+  });
+  if (inferredLane) return (inferredLane === 5 ? 6 : inferredLane) as SetDistributionZone;
+  if (!action.spike) return null;
+  return getActionZoneFromPosition(action.spike.start, teamSide, "normal") as SetDistributionZone;
+};
+
+const getSetDestinationZone = (
+  action: Action,
+  teamSide: AnalysisTeamSide,
+  followUpAttack?: Action | null
+): SetDistributionZone | null => {
+  if (followUpAttack) {
+    return getActionAttackZone(followUpAttack, teamSide);
+  }
+  if (!action.spike) return null;
+  return getActionZoneFromPosition(action.spike.end, teamSide, "normal") as SetDistributionZone;
+};
+
+const buildSetFollowUpMap = (match: Match, setActions: Action[]) => {
+  const results = new Map<string, Action | null>();
+
+  setActions.forEach((setAction) => {
+    const index = match.actions.findIndex((candidate) => candidate.id === setAction.id);
+    if (index === -1) {
+      results.set(setAction.id, null);
+      return;
+    }
+
+    let linkedAttack: Action | null = null;
+
+    for (let cursor = index + 1; cursor < match.actions.length; cursor += 1) {
+      const candidate = match.actions[cursor];
+      if (candidate.teamId !== setAction.teamId) continue;
+      if (candidate.actionType === "ataque") {
+        linkedAttack = candidate;
+        break;
+      }
+      if (candidate.actionType === "levantamiento") break;
+    }
+
+    results.set(setAction.id, linkedAttack);
+  });
+
+  return results;
+};
+
+const buildSetDistributionStats = (
+  setActions: Action[],
+  teamSide: AnalysisTeamSide,
+  followUps: Map<string, Action | null>
+): SetDistributionStat[] => {
+  const zones: SetDistributionZone[] = [4, 3, 2, 1, 6, 5];
+
+  return zones.map((zone) => {
+    const items = setActions.filter((action) => getSetDestinationZone(action, teamSide, followUps.get(action.id)) === zone);
+    const successCount = items.filter((action) => {
+      const followUp = followUps.get(action.id);
+      return followUp?.evaluation ? ATTACK_SUCCESS_EVALUATIONS.has(followUp.evaluation) : false;
+    }).length;
+
+    return {
+      zone,
+      label: SET_ZONE_LABELS[zone],
+      total: items.length,
+      rate: percentage(items.length, setActions.length),
+      successRate: percentage(successCount, items.length),
+    };
+  });
+};
 
 const buildContextStats = (
   actions: Action[],
@@ -205,7 +309,22 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
   const playerActions = match.actions.filter((action) => action.playerId === playerId);
   const attackActions = playerActions.filter((action) => action.actionType === "ataque" && action.spike);
   const receptionActions = playerActions.filter((action) => action.actionType === "recepcion" && action.spike);
+  const setActions = playerActions.filter((action) => action.actionType === "levantamiento" && action.spike);
   const attackSuccessCount = attackActions.filter((action) => action.evaluation && ATTACK_SUCCESS_EVALUATIONS.has(action.evaluation)).length;
+  const setFollowUps = buildSetFollowUpMap(match, setActions);
+  const setSuccessCount = setActions.filter((action) => {
+    const followUp = setFollowUps.get(action.id);
+    return followUp?.evaluation ? ATTACK_SUCCESS_EVALUATIONS.has(followUp.evaluation) : false;
+  }).length;
+  const setDistributions = buildSetDistributionStats(setActions, teamSide, setFollowUps);
+  const dominantSetZone = [...setDistributions].sort((left, right) => right.total - left.total)[0] ?? null;
+  const setPrecisionDistances = setActions
+    .map((action) => {
+      const destinationZone = getSetDestinationZone(action, teamSide, setFollowUps.get(action.id));
+      if (!action.spike || destinationZone === null) return null;
+      return distanceBetweenPoints(action.spike.end, getIdealAttackPoint(teamSide, destinationZone));
+    })
+    .filter((value): value is number => value !== null);
   const attackTrends = buildDirectionStats(attackActions, teamSide);
   const dominantTrend = [...attackTrends].sort((left, right) => right.total - left.total)[0] ?? null;
   const receptionHeatmap = buildHeatmap(receptionActions, teamSide);
@@ -281,6 +400,23 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
         complex: action.complex,
       })),
       contactPoints: buildContactPoints(receptionActions, "reception"),
+    },
+    set: {
+      total: setActions.length,
+      successRate: percentage(setSuccessCount, setActions.length),
+      averagePrecisionDistance:
+        setPrecisionDistances.reduce((sum, distance) => sum + distance, 0) / Math.max(setPrecisionDistances.length, 1),
+      dominantZone: dominantSetZone && dominantSetZone.total > 0 ? dominantSetZone.zone : null,
+      distributions: setDistributions,
+      trajectories: setActions.map((action) => ({
+        id: action.id,
+        kind: "set" as const,
+        start: action.spike!.start,
+        end: action.spike!.end,
+        evaluation: setFollowUps.get(action.id)?.evaluation,
+        complex: action.complex,
+      })),
+      contactPoints: buildContactPoints(setActions, "set"),
     },
     context: {
       byRotation: buildContextStats(playerActions, normalizeRotation),

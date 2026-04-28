@@ -15,7 +15,6 @@ const PLAYER_ROLES: PlayerRole[] = [
   "punta",
   "central",
   "libero",
-  "zaguero",
 ];
 
 interface TeamEditorProps {
@@ -41,7 +40,7 @@ const createEmptyPlayerForm = (): PlayerFormState => ({
   id: "",
   numberInput: "",
   name: "",
-  primaryRole: "zaguero",
+  primaryRole: "punta",
 });
 
 const createPlayerFormFromPlayer = (player: Player): PlayerFormState => ({

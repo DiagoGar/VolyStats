@@ -37,7 +37,7 @@ const getHeatCellStyle = (zone: CourtPosition, team: "own" | "opponent", intensi
 };
 
 function AnalysisOverlay({ analysis }: { analysis: PlayerAnalysis }) {
-  const trajectories = [...analysis.attack.trajectories, ...analysis.reception.trajectories];
+  const trajectories = [...analysis.attack.trajectories, ...analysis.reception.trajectories, ...analysis.set.trajectories];
 
   return (
     <>
@@ -91,6 +91,16 @@ function AnalysisOverlay({ analysis }: { analysis: PlayerAnalysis }) {
           <circle
             key={point.id}
             className="analysis-contact reception"
+            cx={point.x * 100}
+            cy={point.y * 100}
+            r="1.1"
+          />
+        ))}
+
+        {analysis.set.contactPoints.map((point) => (
+          <circle
+            key={point.id}
+            className="analysis-contact set"
             cx={point.x * 100}
             cy={point.y * 100}
             r="1.1"
@@ -155,6 +165,46 @@ function AnalysisSidebar({ analysis }: { analysis: PlayerAnalysis | null }) {
               <span>{formatPercent(trend.successRate)} exito</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="analysis-panel-card">
+        <div className="analysis-section-title">Armado</div>
+        <div className="analysis-metric-grid">
+          <div>
+            <strong>{analysis.set.total}</strong>
+            <span>Volumen</span>
+          </div>
+          <div>
+            <strong>{formatPercent(analysis.set.successRate)}</strong>
+            <span>Exito</span>
+          </div>
+          <div>
+            <strong>{analysis.set.dominantZone ? `Z${analysis.set.dominantZone}` : "-"}</strong>
+            <span>Zona dominante</span>
+          </div>
+        </div>
+        <div className="analysis-context-group">
+          <h4>Precision</h4>
+          <div className="analysis-chip-row">
+            <span>Distancia media al punto ideal</span>
+            <strong>{formatCourtValue(analysis.set.averagePrecisionDistance)}</strong>
+          </div>
+        </div>
+        <div className="analysis-context-group">
+          <h4>Distribucion de juego</h4>
+          {analysis.set.distributions.every((item) => item.total === 0) ? (
+            <p>Sin datos</p>
+          ) : (
+            analysis.set.distributions.map((item) => (
+              <div key={item.zone} className="analysis-chip-row">
+                <span>{item.label}</span>
+                <strong>{item.total}</strong>
+                <span>{formatPercent(item.rate)}</span>
+                <span>{formatPercent(item.successRate)} exito</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -293,7 +343,7 @@ export function PlayerAnalysisView({ match, roleAssignments }: PlayerAnalysisVie
       <div className="analysis-court-wrap">
         <div className="court-header analysis-header">
           <span className="court-title">Modo Analisis</span>
-          <span className="analysis-header-copy">Click en un jugador para ver tendencias, recepcion y contexto real.</span>
+          <span className="analysis-header-copy">Click en un jugador para ver tendencias, armado, recepcion y contexto real.</span>
         </div>
 
         <div className="court analysis-court">

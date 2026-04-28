@@ -18,8 +18,7 @@ export type PlayerPositionRole =
   | 'punta'        // Izquierda delantera / Centro delantera
   | 'central'      // Centro frontal
   | 'armador'      // Levantador/Setter
-  | 'libero'       // Defensor especializado
-  | 'zaguero';     // Otros roles de defensa
+  | 'libero';      // Defensor especializado
 
 export interface Team {
   id: string;

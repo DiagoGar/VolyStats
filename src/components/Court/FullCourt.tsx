@@ -42,7 +42,13 @@ interface FullCourtProps {
     outPlayerId: string,
     inPlayerId: string
   ) => { ok: true } | { ok: false; message: string };
-  onAttack: (team: "own" | "opponent", zone: Zone) => void;
+  onAttack: (
+    team: "own" | "opponent",
+    zone: Zone,
+    courtPosition?: CourtPosition,
+    playerRole?: PlayerRole,
+    contactStart?: { x: number; y: number }
+  ) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onServe: (
     team: "own" | "opponent",
@@ -56,7 +62,8 @@ interface FullCourtProps {
     start: { x: number; y: number },
     end: { x: number; y: number },
     playerId?: string,
-    playerRole?: PlayerRole
+    playerRole?: PlayerRole,
+    courtPosition?: CourtPosition
   ) => void;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
@@ -67,7 +74,8 @@ interface FullCourtProps {
     complex?: Complex,
     playerId?: string,
     playerRole?: PlayerRole,
-    evaluation?: Evaluation
+    evaluation?: Evaluation,
+    courtPosition?: CourtPosition
   ) => void;
 }
 
@@ -328,7 +336,7 @@ export function FullCourt({
     if (rallyStatus === "waiting_serve") {
       const markerPos = getCourtPositionCoords(position, team, courtOrientation);
       const legacyZone = toLegacyZone(getActionZoneFromPosition(markerPos, team, courtOrientation));
-      onAttack(team, legacyZone);
+      onAttack(team, legacyZone, position, player?.primaryRole, markerPos);
       return;
     }
     const expectedAction = getExpectedRallyAction(team);
@@ -363,15 +371,33 @@ export function FullCourt({
     const actionZone = getActionZoneFromPosition(start, team, courtOrientation);
     const legacyZone = toLegacyZone(actionZone);
     if (expectedAction === "reception") {
-      onServeReception(team, legacyZone, start, end, attackDrawState.playerId, attackDrawState.playerRole);
+      onServeReception(
+        team,
+        legacyZone,
+        start,
+        end,
+        attackDrawState.playerId,
+        attackDrawState.playerRole,
+        attackDrawState.position
+      );
       setAttackDrawState(null);
       setAttackDrawStart(null);
       return;
     }
     if (expectedAction === "attack") {
-      onAttack(team, legacyZone);
+      onAttack(team, legacyZone, attackDrawState.position, attackDrawState.playerRole, start);
     }
-    onRallyDraw(team, legacyZone, start, end, undefined, attackDrawState.playerId, attackDrawState.playerRole, undefined);
+    onRallyDraw(
+      team,
+      legacyZone,
+      start,
+      end,
+      undefined,
+      attackDrawState.playerId,
+      attackDrawState.playerRole,
+      undefined,
+      attackDrawState.position
+    );
     setAttackDrawState(null);
     setAttackDrawStart(null);
   };

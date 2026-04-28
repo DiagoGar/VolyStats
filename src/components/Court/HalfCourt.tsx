@@ -246,7 +246,7 @@ export function HalfCourt({
               <button onClick={() => handlePlayerRoleSelect('central')}>Central</button>
               <button onClick={() => handlePlayerRoleSelect('armador')}>Armador</button>
               <button onClick={() => handlePlayerRoleSelect('libero')}>Líbero</button>
-              <button onClick={() => handlePlayerRoleSelect('zaguero')}>Zaguero</button>
+              <button onClick={() => handlePlayerRoleSelect('punta')}>Punta</button>
             </div>
             <button className="skip-btn" onClick={() => handlePlayerRoleSelect(undefined as any)}>Omitir</button>
             <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>

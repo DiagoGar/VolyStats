@@ -3,6 +3,7 @@ import type { Action, ActionEvaluation, ActionZone, Match, Player } from "@/type
 export type AnalysisTeamSide = "own" | "opponent";
 export type AttackTrend = "linea" | "cruzada" | "corte";
 export type ReceptionQuality = "perfecta" | "positiva" | "negativa";
+export type SetDistributionZone = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface AnalysisContextStat {
   key: string;
@@ -21,7 +22,7 @@ export interface DirectionStat {
 
 export interface AnalysisTrajectory {
   id: string;
-  kind: "attack" | "reception";
+  kind: "attack" | "reception" | "set";
   start: { x: number; y: number };
   end: { x: number; y: number };
   evaluation?: ActionEvaluation;
@@ -31,7 +32,7 @@ export interface AnalysisTrajectory {
 
 export interface AnalysisContactPoint {
   id: string;
-  kind: "attack" | "reception";
+  kind: "attack" | "reception" | "set";
   x: number;
   y: number;
 }
@@ -46,6 +47,14 @@ export interface AttackCone {
   origin: { x: number; y: number };
   left: { x: number; y: number };
   right: { x: number; y: number };
+}
+
+export interface SetDistributionStat {
+  zone: SetDistributionZone;
+  label: string;
+  total: number;
+  rate: number;
+  successRate: number;
 }
 
 export interface PlayerAnalysis {
@@ -78,6 +87,15 @@ export interface PlayerAnalysis {
     }>;
     dominantQuality: ReceptionQuality | null;
     heatmap: AnalysisHeatmapCell[];
+    trajectories: AnalysisTrajectory[];
+    contactPoints: AnalysisContactPoint[];
+  };
+  set: {
+    total: number;
+    successRate: number;
+    averagePrecisionDistance: number;
+    dominantZone: SetDistributionZone | null;
+    distributions: SetDistributionStat[];
     trajectories: AnalysisTrajectory[];
     contactPoints: AnalysisContactPoint[];
   };

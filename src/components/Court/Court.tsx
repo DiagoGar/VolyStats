@@ -29,7 +29,13 @@ interface Props {
     outPlayerId: string,
     inPlayerId: string
   ) => { ok: true } | { ok: false; message: string };
-  onAttack: (team: "own" | "opponent", zone: Zone) => void;
+  onAttack: (
+    team: "own" | "opponent",
+    zone: Zone,
+    courtPosition?: CourtPosition,
+    playerRole?: PlayerRole,
+    contactStart?: { x: number; y: number }
+  ) => void;
   onToggleMode: (team: "own" | "opponent") => void;
   onReset: () => void;
   onServe: (
@@ -44,7 +50,8 @@ interface Props {
     start: { x: number; y: number },
     end: { x: number; y: number },
     playerId?: string,
-    playerRole?: PlayerRole
+    playerRole?: PlayerRole,
+    courtPosition?: CourtPosition
   ) => void;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
@@ -55,7 +62,8 @@ interface Props {
     complex?: Complex,
     playerId?: string,
     playerRole?: PlayerRole,
-    evaluation?: Evaluation
+    evaluation?: Evaluation,
+    courtPosition?: CourtPosition
   ) => void;
 }
 

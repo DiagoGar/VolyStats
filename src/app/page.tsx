@@ -14,16 +14,81 @@ import { clearStorage, loadFromStorage, storageKeys } from "@/hooks/usePersisten
 import "@/components/DataExportImport/dataExportImport.css";
 import "@/components/RotationFlow/matchSetup.css";
 import type { Match, Player, CourtPosition, Action, ActionEvaluation, Rotation, RotationSnapshot, SubstitutionEvent, ServeResult, ServeType, ActionType, RallyActionFlowType, RallyStatus } from "@/types/volley-model";
+import type { Zone } from "@/types/stats";
 import type { RotationType } from "@/types/rotation";
 import type { Complex, PlayerRole } from "@/types/spike";
 import { calculateAngle } from "@/utils/spikeMath";
+import { inferAttackLaneFromContext } from "@/utils/courtGeometry";
 import { assessReceptionTarget, getReceptionEvaluation } from "@/utils/reception";
+
+const normalizeLegacyRole = (role: string | undefined): PlayerRole =>
+  role === "zaguero" || !role ? "punta" : (role as PlayerRole);
+
+const normalizePlayer = <T extends { primaryRole?: string }>(player: T): T =>
+  ({
+    ...player,
+    primaryRole: normalizeLegacyRole(player.primaryRole),
+  }) as T;
+
+const normalizeAssignments = (
+  assignments: Record<CourtPosition, Player>
+): Record<CourtPosition, Player> => ({
+  1: normalizePlayer(assignments[1]),
+  2: normalizePlayer(assignments[2]),
+  3: normalizePlayer(assignments[3]),
+  4: normalizePlayer(assignments[4]),
+  5: normalizePlayer(assignments[5]),
+  6: normalizePlayer(assignments[6]),
+});
+
+const normalizeMatch = (match: Match | null): Match | null => {
+  if (!match) return null;
+
+  const normalizeRotation = (rotation: Rotation) => ({
+    ...rotation,
+    setter: normalizePlayer(rotation.setter),
+    positions: normalizeAssignments(rotation.positions),
+  });
+
+  return {
+    ...match,
+    homeTeam: {
+      ...match.homeTeam,
+      players: match.homeTeam.players.map(normalizePlayer),
+    },
+    awayTeam: {
+      ...match.awayTeam,
+      players: match.awayTeam.players.map(normalizePlayer),
+    },
+    actions: match.actions.map((action) => ({
+      ...action,
+      playerRole: normalizeLegacyRole(action.playerRole),
+    })),
+    currentHomeRotation: match.currentHomeRotation ? normalizeRotation(match.currentHomeRotation) : match.currentHomeRotation,
+    currentAwayRotation: match.currentAwayRotation ? normalizeRotation(match.currentAwayRotation) : match.currentAwayRotation,
+    homeRotations: match.homeRotations.map(normalizeRotation),
+    awayRotations: match.awayRotations.map(normalizeRotation),
+  };
+};
+
+const normalizeRoleAssignments = (
+  assignments: {
+    homeTeamAssignments: Record<CourtPosition, Player>;
+    awayTeamAssignments: Record<CourtPosition, Player>;
+  } | null
+) =>
+  assignments
+    ? {
+        homeTeamAssignments: normalizeAssignments(assignments.homeTeamAssignments),
+        awayTeamAssignments: normalizeAssignments(assignments.awayTeamAssignments),
+      }
+    : null;
 
 export default function Page() {
   const [viewMode, setViewMode] = useState<"register" | "analysis">("register");
   const [isClient, setIsClient] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(() =>
-    loadFromStorage<Match | null>(storageKeys.match, null)
+    normalizeMatch(loadFromStorage<Match | null>(storageKeys.match, null))
   );
   const [rotationConfig, setRotationConfig] = useState<{
     homeTeamSetter: Player;
@@ -40,10 +105,11 @@ export default function Page() {
     homeTeamAssignments: Record<CourtPosition, Player>;
     awayTeamAssignments: Record<CourtPosition, Player>;
   } | null>(() =>
-    loadFromStorage<{
+    normalizeRoleAssignments(loadFromStorage<{
       homeTeamAssignments: Record<CourtPosition, Player>;
       awayTeamAssignments: Record<CourtPosition, Player>;
     } | null>(storageKeys.roleAssignments, null)
+    )
   );
   const [initialRoleAssignments, setInitialRoleAssignments] = useState<{
     homeTeamAssignments: Record<CourtPosition, Player>;
@@ -385,6 +451,7 @@ export default function Page() {
     evaluation,
     spike,
     playerId,
+    courtPosition,
     actionType = "ataque",
     actionKind,
     serveType,
@@ -399,6 +466,7 @@ export default function Page() {
     evaluation?: ActionEvaluation;
     spike?: { start: { x: number; y: number }; end: { x: number; y: number } };
     playerId?: string;
+    courtPosition?: CourtPosition;
     actionType?: ActionType;
     actionKind?: Action["type"];
     serveType?: ServeType;
@@ -411,7 +479,7 @@ export default function Page() {
     const player = playerId
       ? [...currentMatch.homeTeam.players, ...currentMatch.awayTeam.players].find((p) => p.id === playerId)
       : getPlayerFromTeamByZone(team, zone);
-    const position = zone as CourtPosition;
+    const position = courtPosition ?? (zone as CourtPosition);
     const rotation = team === "own" ? currentMatch.currentHomeRotation : currentMatch.currentAwayRotation;
     const rotationId = rotation?.id;
 
@@ -437,7 +505,7 @@ export default function Page() {
     const action: Action = {
       id: crypto.randomUUID(),
       playerId: player?.id || "",
-      playerRole: playerRole || (player?.primaryRole ?? "zaguero"),
+      playerRole: playerRole || normalizeLegacyRole(player?.primaryRole),
       teamId: team === "own" ? currentMatch.homeTeam.id : currentMatch.awayTeam.id,
       actionType,
       type: actionKind ?? (spike ? "spike" : undefined),
@@ -644,9 +712,22 @@ export default function Page() {
     }
   };
 
-  const handleAttack = (team: "own" | "opponent", zone: number) => {
+  const handleAttack = (
+    team: "own" | "opponent",
+    zone: number,
+    courtPosition?: CourtPosition,
+    playerRole?: PlayerRole,
+    contactStart?: { x: number; y: number }
+  ) => {
     if (currentMatch?.rallyStatus !== "in_play") return;
-    addAttack(team, zone as any);
+    const inferredLane = inferAttackLaneFromContext({
+      position: courtPosition,
+      playerRole,
+      contactStart,
+      team,
+    });
+    const statsZone = (inferredLane === 5 ? 6 : inferredLane ?? zone) as Zone;
+    addAttack(team, statsZone);
   };
 
   const inferDefenseEvaluation = (
@@ -665,7 +746,8 @@ export default function Page() {
     complex?: Complex,
     playerId?: string,
     playerRole?: PlayerRole,
-    evaluation?: ActionEvaluation
+    evaluation?: ActionEvaluation,
+    courtPosition?: CourtPosition
   ) => {
     if (currentMatch?.rallyStatus !== "in_play") return;
     const teamId = team === "own" ? "home" : "away";
@@ -699,6 +781,7 @@ export default function Page() {
       evaluation: resolvedEvaluation,
       spike: { start, end },
       playerId,
+      courtPosition,
       actionType: isDefense ? "recepcion" : isSet ? "levantamiento" : "ataque",
       actionKind: isDefense ? "dig" : isSet ? "set" : "spike",
     });
@@ -729,7 +812,8 @@ export default function Page() {
     start: { x: number; y: number },
     end: { x: number; y: number },
     playerId?: string,
-    playerRole?: PlayerRole
+    playerRole?: PlayerRole,
+    courtPosition?: CourtPosition
   ) => {
     if (!currentMatch || currentMatch.rallyStatus !== "awaiting_serve_reception") return;
     const servingSide: "own" | "opponent" = currentMatch.servingTeam === "home" ? "own" : "opponent";
@@ -745,6 +829,7 @@ export default function Page() {
       evaluation,
       spike: { start, end },
       playerId,
+      courtPosition,
       actionType: "recepcion",
       actionKind: "dig",
       rallyStatusOverride: "in_play",

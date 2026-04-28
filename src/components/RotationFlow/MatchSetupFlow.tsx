@@ -15,6 +15,16 @@ import { TeamSelector } from "./TeamSelector";
 import { TeamEditor } from "./TeamEditor";
 import type { Team, Match } from "@/types/volley-model";
 
+const normalizeLegacyRole = (role: string | undefined) => (role === "zaguero" || !role ? "punta" : role);
+
+const normalizeTeam = (team: Team): Team => ({
+  ...team,
+  players: team.players.map((player) => ({
+    ...player,
+    primaryRole: normalizeLegacyRole(player.primaryRole) as Team["players"][number]["primaryRole"],
+  })),
+});
+
 interface MatchSetupFlowProps {
   onMatchReady: (match: Match) => void;
   onCancel: () => void;
@@ -39,8 +49,9 @@ export function MatchSetupFlow({
     try {
       const stored = localStorage.getItem("voley-stats:teams");
       if (stored) {
-        const teams = JSON.parse(stored);
+        const teams = (JSON.parse(stored) as Team[]).map(normalizeTeam);
         setAllTeams(teams);
+        localStorage.setItem("voley-stats:teams", JSON.stringify(teams));
       }
     } catch (err) {
       console.error("Error loading teams:", err);

@@ -1,4 +1,4 @@
-import type { CourtPosition, ActionZone } from "@/types/volley-model";
+import type { CourtPosition, ActionZone, PlayerRole } from "@/types/volley-model";
 import type { Zone } from "@/types/stats";
 
 export type CourtOrientation = "normal" | "flipped";
@@ -70,4 +70,42 @@ export const getCourtPositionCoords = (
     default:
       return { x: rightX, y: backY };
   }
+};
+
+export const inferAttackLaneFromContext = ({
+  position,
+  playerRole,
+  contactStart,
+  team,
+  orientation = "normal",
+}: {
+  position?: CourtPosition;
+  playerRole?: PlayerRole;
+  contactStart?: { x: number; y: number };
+  team?: "own" | "opponent";
+  orientation?: CourtOrientation;
+}): ActionZone | null => {
+  const geometricZone =
+    contactStart && team ? getActionZoneFromPosition(contactStart, team, orientation) : null;
+
+  if (position === 1) return 1;
+  if (position === 2 || position === 3 || position === 4) {
+    if (geometricZone === 4 || geometricZone === 3 || geometricZone === 2) return geometricZone;
+    return position;
+  }
+  if (position === 5) return 6;
+
+  if (position === 6) {
+    if (playerRole === "opuesto") return 1;
+
+    if (geometricZone === 1 || geometricZone === 2) return 1;
+
+    return 6;
+  }
+
+  if (geometricZone) {
+    return geometricZone === 5 ? 6 : geometricZone;
+  }
+
+  return null;
 };
