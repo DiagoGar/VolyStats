@@ -201,7 +201,7 @@ export function drawAngularFan(
 /**
  * Determina el color de una trayectoria basado en evaluation + complex
  * @param evaluation Evaluación de la acción (#, ++, +, /, -, --)
- * @param complex Complejo de juego (K1, K2, K3, K4)
+ * @param complex Complejo de juego (K0, K1, K2, K3, K4, K5)
  * @returns Color en formato hex
  */
 export function getTrajectoryColor(evaluation?: string, complex?: string): string {
@@ -214,10 +214,12 @@ export function getTrajectoryColor(evaluation?: string, complex?: string): strin
   if (evaluation === "--") return "#CC0000"; // Rojo - error directo
 
   // Si no hay evaluación, colorear por complejo
+  if (complex === "K0") return "#0f766e"; // Verde azulado - Saque
   if (complex === "K1") return "#0066FF"; // Azul - Side-out
   if (complex === "K2") return "#FF6600"; // Naranja - Break-point
-  if (complex === "K3") return "#00AA00"; // Verde - Contraataque
-  if (complex === "K4") return "#FFAA00"; // Amarillo - Freeball
+  if (complex === "K3") return "#00AA00"; // Verde - Continuidad
+  if (complex === "K4") return "#FFAA00"; // Amarillo - Cobertura
+  if (complex === "K5") return "#8B5CF6"; // Violeta - Free ball
 
   return "#999999"; // Gris por defecto
 }

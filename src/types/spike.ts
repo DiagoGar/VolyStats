@@ -3,7 +3,7 @@ import type { Zone } from "./stats";
 import type { PlayerRole } from "./volley-model";
 export type { PlayerRole } from "./volley-model";
 
-export type Complex = 'K1' | 'K2' | 'K3' | 'K4';
+export type Complex = 'K0' | 'K1' | 'K2' | 'K3' | 'K4' | 'K5';
 
 export type Evaluation = '#' | '++' | '+' | '/' | '-' | '--';
 

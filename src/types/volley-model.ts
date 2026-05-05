@@ -289,7 +289,7 @@ export interface Action {
   // Resultado
   evaluation?: ActionEvaluation; // Cómo salió
   targetZone?: ActionZone; // Hacia dónde fue (si aplica)
-  complex?: "K1" | "K2" | "K3" | "K4";
+  complex?: "K0" | "K1" | "K2" | "K3" | "K4" | "K5";
   team?: "home" | "away";
   spike?: SpikeActionData; // Datos específicos cuando la acción es un spike/ataque
   serve?: SpikeActionData;

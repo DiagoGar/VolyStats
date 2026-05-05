@@ -197,10 +197,12 @@ export function HalfCourt({
             onChange={(e) => setFilterComplex(e.target.value as Complex || null)}
           >
             <option value="">Todos</option>
+            <option value="K0">K0</option>
             <option value="K1">K1</option>
             <option value="K2">K2</option>
             <option value="K3">K3</option>
             <option value="K4">K4</option>
+            <option value="K5">K5</option>
           </select>
         </div>
 
@@ -227,10 +229,11 @@ export function HalfCourt({
           <div className="complex-selector">
             <h3>Selecciona el Complejo de Juego</h3>
             <div className="complex-buttons">
-              <button onClick={() => handleComplexSelect('K1')}>K1 - Side-out</button>
-              <button onClick={() => handleComplexSelect('K2')}>K2 - Break-point</button>
-              <button onClick={() => handleComplexSelect('K3')}>K3 - Contraataque</button>
-              <button onClick={() => handleComplexSelect('K4')}>K4 - Freeball</button>
+              <button onClick={() => handleComplexSelect('K1')}>K1 - Recepcion</button>
+              <button onClick={() => handleComplexSelect('K2')}>K2 - Defensa y contraataque</button>
+              <button onClick={() => handleComplexSelect('K3')}>K3 - Continuidad</button>
+              <button onClick={() => handleComplexSelect('K4')}>K4 - Cobertura</button>
+              <button onClick={() => handleComplexSelect('K5')}>K5 - Free ball</button>
             </div>
             <button className="cancel-btn" onClick={handleCloseDraw}>Cancelar</button>
           </div>

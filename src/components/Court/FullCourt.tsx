@@ -907,7 +907,7 @@ export function FullCourt({
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: "#FFAA00" }}></span>
-              <span>/ Neutro / K4</span>
+              <span>/ Neutro / K4 Cobertura</span>
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: "#FF6600" }}></span>
@@ -923,7 +923,11 @@ export function FullCourt({
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: "#00AA00" }}></span>
-              <span>K3 Contraataque</span>
+              <span>K3 Continuidad</span>
+            </div>
+            <div className="legend-item">
+              <span className="legend-color" style={{ backgroundColor: "#8B5CF6" }}></span>
+              <span>K5 Free ball</span>
             </div>
           </div>
           <p className="legend-note">Las flechas muestran dirección y evaluación del ataque. El historial de puntos directos se muestra abajo.</p>
@@ -963,10 +967,12 @@ export function FullCourt({
             onChange={(e) => setFilterComplex(e.target.value as Complex || null)}
           >
             <option value="">Todos</option>
+            <option value="K0">K0</option>
             <option value="K1">K1</option>
             <option value="K2">K2</option>
             <option value="K3">K3</option>
             <option value="K4">K4</option>
+            <option value="K5">K5</option>
           </select>
         </div>
 

@@ -21,6 +21,73 @@ import { calculateAngle } from "@/utils/spikeMath";
 import { inferAttackLaneFromContext } from "@/utils/courtGeometry";
 import { assessReceptionTarget, getReceptionEvaluation } from "@/utils/reception";
 
+type MatchTeamSide = "home" | "away";
+type RallyComplexPhase = "pre_k1_attack" | "pre_k2_attack" | "extended_rally";
+
+const getOpposingTeam = (team: MatchTeamSide): MatchTeamSide => (team === "home" ? "away" : "home");
+
+const getCurrentRallyActions = (match: Match) => {
+  const latestServeIndex = [...match.actions]
+    .map((action, index) => ({ action, index }))
+    .reverse()
+    .find(({ action }) => action.actionType === "saque")?.index;
+
+  if (latestServeIndex === undefined) return [];
+  return match.actions.slice(latestServeIndex + 1);
+};
+
+const getRallyComplexPhase = (match: Match): RallyComplexPhase => {
+  const servingTeam = match.servingTeam ?? "home";
+  const receivingTeam = getOpposingTeam(servingTeam);
+  const rallyActions = getCurrentRallyActions(match);
+
+  let phase: RallyComplexPhase = "pre_k1_attack";
+
+  for (const action of rallyActions) {
+    const actionTeam = action.team ?? (action.teamId === match.homeTeam.id ? "home" : "away");
+
+    if (phase === "pre_k1_attack") {
+      if (action.actionType === "ataque" && actionTeam === receivingTeam) {
+        phase = "pre_k2_attack";
+      }
+      continue;
+    }
+
+    if (phase === "pre_k2_attack") {
+      if (action.actionType === "ataque" && actionTeam === servingTeam) {
+        phase = "extended_rally";
+      }
+      continue;
+    }
+  }
+
+  return phase;
+};
+
+const inferComplexFromRallyState = (
+  match: Match,
+  team: MatchTeamSide,
+  actionType: ActionType,
+  explicitComplex?: Complex
+): Complex => {
+  if (explicitComplex) return explicitComplex;
+  if (actionType === "saque") return "K0";
+
+  const servingTeam = match.servingTeam ?? "home";
+  const receivingTeam = getOpposingTeam(servingTeam);
+  const phase = getRallyComplexPhase(match);
+
+  if (phase === "pre_k1_attack") {
+    return team === receivingTeam ? "K1" : "K3";
+  }
+
+  if (phase === "pre_k2_attack") {
+    return team === servingTeam ? "K2" : "K3";
+  }
+
+  return "K3";
+};
+
 const normalizeLegacyRole = (role: string | undefined): PlayerRole =>
   role === "zaguero" || !role ? "punta" : (role as PlayerRole);
 
@@ -502,6 +569,13 @@ export default function Page() {
         }
       : undefined;
 
+    const inferredComplex = inferComplexFromRallyState(
+      currentMatch,
+      team === "own" ? "home" : "away",
+      actionType,
+      complex
+    );
+
     const action: Action = {
       id: crypto.randomUUID(),
       playerId: player?.id || "",
@@ -520,7 +594,7 @@ export default function Page() {
       },
       evaluation,
       targetZone: undefined,
-      complex,
+      complex: inferredComplex,
       team: team === "own" ? "home" : "away",
       spike: spike
         ? {
@@ -760,18 +834,12 @@ export default function Page() {
       currentMatch.lastActionTeam !== null &&
       currentMatch.lastActionTeam === teamId;
     const resolvedEvaluation = isDefense && !evaluation ? inferDefenseEvaluation(team, end) : evaluation;
-    let inferredComplex: Complex | undefined = complex;
-    if (!inferredComplex) {
-      if (currentMatch.lastActionType === "attack" && currentMatch.lastActionTeam !== teamId) {
-        inferredComplex = "K2";
-      }
-      if (currentMatch.lastActionType === "defense" && currentMatch.lastActionTeam === teamId) {
-        inferredComplex = "K1";
-      }
-      if (currentMatch.lastActionType === "set" && currentMatch.lastActionTeam === teamId) {
-        inferredComplex = "K1";
-      }
-    }
+    const inferredComplex = inferComplexFromRallyState(
+      currentMatch,
+      teamId,
+      isDefense ? "recepcion" : isSet ? "levantamiento" : "ataque",
+      complex
+    );
     addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, resolvedEvaluation, isDefense ? "defense" : isSet ? "set" : "attack");
     addMatchAction({
       team,
@@ -794,10 +862,11 @@ export default function Page() {
     serve: { start: { x: number; y: number }; end: { x: number; y: number } }
   ) => {
     if (currentMatch?.rallyStatus !== "waiting_serve") return;
-    addTrajectory(team, 1 as any, serve.start, serve.end, undefined, undefined, undefined, "serve");
+    addTrajectory(team, 1 as any, serve.start, serve.end, "K0", undefined, undefined, "serve");
     addMatchAction({
       team,
       zone: 1,
+      complex: "K0",
       actionType: "saque",
       actionKind: "serve",
       serveType,

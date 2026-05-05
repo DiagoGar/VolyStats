@@ -9,7 +9,7 @@ interface ActionLogProps {
 }
 
 const EVALUATION_OPTIONS: Array<Action["evaluation"]> = ["#", "++", "+", "/", "-", "--"];
-const COMPLEX_OPTIONS = ["K1", "K2", "K3", "K4"] as const;
+const COMPLEX_OPTIONS = ["K0", "K1", "K2", "K3", "K4", "K5"] as const;
 
 export function ActionLog({ actions, match }: ActionLogProps) {
   const [filterComplex, setFilterComplex] = useState<string>("");
@@ -46,7 +46,7 @@ export function ActionLog({ actions, match }: ActionLogProps) {
   };
 
   const totalByComplex = useMemo(() => {
-    const counter: Record<string, number> = { K1: 0, K2: 0, K3: 0, K4: 0 };
+    const counter: Record<string, number> = { K0: 0, K1: 0, K2: 0, K3: 0, K4: 0, K5: 0 };
     for (const action of actions) {
       if (action.complex && counter[action.complex] !== undefined) {
         counter[action.complex]++;
@@ -95,7 +95,7 @@ export function ActionLog({ actions, match }: ActionLogProps) {
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(110px, 1fr))", gap: "8px", marginBottom: "12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(110px, 1fr))", gap: "8px", marginBottom: "12px" }}>
         {COMPLEX_OPTIONS.map((c) => (
           <div key={c} style={{ border: "1px solid #ddd", borderRadius: "6px", padding: "6px" }}>
             <strong>{c}</strong>: {totalByComplex[c]}
