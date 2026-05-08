@@ -65,6 +65,8 @@ interface FullCourtProps {
     playerRole?: PlayerRole,
     courtPosition?: CourtPosition
   ) => void;
+  onActivateFreeBall: (team: "own" | "opponent") => void;
+  freeBallTeam?: "own" | "opponent" | null;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
     team: "own" | "opponent",
@@ -95,6 +97,8 @@ export function FullCourt({
   onToggleMode,
   onServe,
   onServeReception,
+  onActivateFreeBall,
+  freeBallTeam,
   onRallyResult,
   onRallyDraw,
 }: FullCourtProps) {
@@ -102,7 +106,6 @@ export function FullCourt({
   const [filterComplex, setFilterComplex] = useState<Complex | null>(null);
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
   const [filterTeam, setFilterTeam] = useState<"own" | "opponent" | null>(null);
-  const [showTrajectories, setShowTrajectories] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
   const [selectedHistoryRallyId, setSelectedHistoryRallyId] = useState<string | null>(null);
   const [serveType, setServeType] = useState<ServeType>("flotado");
@@ -205,6 +208,28 @@ export function FullCourt({
     return "Rally en juego";
   };
 
+  const getNextExpectedTeam = (): "own" | "opponent" | null => {
+    if (rallyStatus === "awaiting_serve_reception") {
+      return receivingSide;
+    }
+
+    if (rallyStatus !== "in_play" || !lastActionType || !lastActionTeam) {
+      return null;
+    }
+
+    if (lastActionType === "attack") {
+      return lastActionTeam === "home" ? "opponent" : "own";
+    }
+
+    if (lastActionType === "defense" || lastActionType === "set") {
+      return lastActionTeam === "home" ? "own" : "opponent";
+    }
+
+    return null;
+  };
+
+  const nextExpectedTeam = getNextExpectedTeam();
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -215,7 +240,7 @@ export function FullCourt({
     // Limpiar canvas cada frame
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (showTrajectories && !selectedHistoryRallyId) {
+    if (!selectedHistoryRallyId) {
       // Dibujar solo trayectorias del rally en curso cuando no hay historial seleccionado
       if (!filterTeam || filterTeam === "own") {
         drawPersistentTrajectories(ctx, canvas, trajectories.own, filterComplex, filterEvaluation);
@@ -271,7 +296,7 @@ export function FullCourt({
         }
       }
     }
-  }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, showTrajectories, selectedHistoryRallyId]);
+  }, [trajectories, trajectoryHistory, filterComplex, filterEvaluation, filterTeam, selectedHistoryRallyId]);
 
   useEffect(() => {
     const canvas = interactionCanvasRef.current;
@@ -818,6 +843,32 @@ export function FullCourt({
               </button>
             </div>
           </div>
+          <div className="serve-row">
+            <span className="serve-label">Contexto:</span>
+            <div className="serve-options">
+              <button
+                type="button"
+                className={`serve-option ${freeBallTeam ? "active" : ""}`}
+                onClick={() => {
+                  if (nextExpectedTeam) {
+                    onActivateFreeBall(nextExpectedTeam);
+                  }
+                }}
+                disabled={!nextExpectedTeam}
+                title={
+                  nextExpectedTeam
+                    ? `Marcar la siguiente construcción de ${
+                        nextExpectedTeam === "own" ? teamNames.home : teamNames.away
+                      } como Free ball`
+                    : "No hay equipo disponible para activar Free ball"
+                }
+              >
+                {freeBallTeam
+                  ? `Free ball: ${freeBallTeam === "own" ? teamNames.home : teamNames.away}`
+                  : "Free ball"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -934,13 +985,6 @@ export function FullCourt({
         </div>
       )}
       <div className="trajectory-controls">
-        <button
-          className={`control-btn ${showTrajectories ? 'active' : ''}`}
-          onClick={() => setShowTrajectories(!showTrajectories)}
-        >
-          {showTrajectories ? 'Ocultar' : 'Mostrar'} Trayectorias
-        </button>
-
         <button
           className={`control-btn ${showLegend ? 'active' : ''}`}
           onClick={() => setShowLegend(!showLegend)}

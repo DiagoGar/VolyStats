@@ -53,6 +53,8 @@ interface Props {
     playerRole?: PlayerRole,
     courtPosition?: CourtPosition
   ) => void;
+  onActivateFreeBall: (team: "own" | "opponent") => void;
+  freeBallTeam?: "own" | "opponent" | null;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
     team: "own" | "opponent",
@@ -84,6 +86,8 @@ export function Court({
   onReset,
   onServe,
   onServeReception,
+  onActivateFreeBall,
+  freeBallTeam,
   onRallyResult,
   onRallyDraw,
 }: Props) {
@@ -106,6 +110,8 @@ export function Court({
           onToggleMode={onToggleMode}
           onServe={onServe}
           onServeReception={onServeReception}
+          onActivateFreeBall={onActivateFreeBall}
+          freeBallTeam={freeBallTeam}
           onRallyResult={onRallyResult}
           onRallyDraw={onRallyDraw}
         />

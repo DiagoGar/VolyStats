@@ -68,10 +68,14 @@ const inferComplexFromRallyState = (
   match: Match,
   team: MatchTeamSide,
   actionType: ActionType,
+  freeBallTeam?: MatchTeamSide | null,
   explicitComplex?: Complex
 ): Complex => {
   if (explicitComplex) return explicitComplex;
   if (actionType === "saque") return "K0";
+  if (freeBallTeam === team && (actionType === "recepcion" || actionType === "levantamiento" || actionType === "ataque")) {
+    return "K5";
+  }
 
   const servingTeam = match.servingTeam ?? "home";
   const receivingTeam = getOpposingTeam(servingTeam);
@@ -154,6 +158,7 @@ const normalizeRoleAssignments = (
 export default function Page() {
   const [viewMode, setViewMode] = useState<"register" | "analysis">("register");
   const [isClient, setIsClient] = useState(false);
+  const [freeBallTeam, setFreeBallTeam] = useState<MatchTeamSide | null>(null);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(() =>
     normalizeMatch(loadFromStorage<Match | null>(storageKeys.match, null))
   );
@@ -220,6 +225,7 @@ export default function Page() {
     resetStats();
     resetTrajectories();
     setCurrentMatch(null);
+    setFreeBallTeam(null);
     setRotationConfig(null);
     setRoleAssignments(null);
     clearStorage(storageKeys.trajectories);
@@ -243,6 +249,7 @@ export default function Page() {
 
   const handleBackToSetup = () => {
     setCurrentMatch(null);
+    setFreeBallTeam(null);
     setRotationConfig(null);
     setRoleAssignments(null);
   };
@@ -573,6 +580,7 @@ export default function Page() {
       currentMatch,
       team === "own" ? "home" : "away",
       actionType,
+      freeBallTeam,
       complex
     );
 
@@ -735,6 +743,14 @@ export default function Page() {
       finalizeRally(winnerTeam === "home" ? "own" : "opponent");
     }
 
+    if (actionType === "ataque" && freeBallTeam === (team === "own" ? "home" : "away")) {
+      setFreeBallTeam(null);
+    }
+
+    if (nextRallyStatus === "waiting_serve") {
+      setFreeBallTeam(null);
+    }
+
     // Resetear asignaciones de roles al inicial si terminó el set
     if (hasSetWinner) {
       setRoleAssignments(initialRoleAssignments);
@@ -838,6 +854,7 @@ export default function Page() {
       currentMatch,
       teamId,
       isDefense ? "recepcion" : isSet ? "levantamiento" : "ataque",
+      freeBallTeam,
       complex
     );
     addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, resolvedEvaluation, isDefense ? "defense" : isSet ? "set" : "attack");
@@ -902,6 +919,14 @@ export default function Page() {
       actionType: "recepcion",
       actionKind: "dig",
       rallyStatusOverride: "in_play",
+    });
+  };
+
+  const handleActivateFreeBall = (team: "own" | "opponent") => {
+    if (!currentMatch || currentMatch.rallyStatus !== "in_play") return;
+    setFreeBallTeam((prev) => {
+      const nextTeam = team === "own" ? "home" : "away";
+      return prev === nextTeam ? null : nextTeam;
     });
   };
 
@@ -976,6 +1001,7 @@ export default function Page() {
     });
 
     finalizeRally(team);
+    setFreeBallTeam(null);
 
     if (hasSetWinner) {
       setRoleAssignments(initialRoleAssignments);
@@ -1178,9 +1204,12 @@ export default function Page() {
             onSubstitute={handleManualSubstitution}
             onAttack={handleAttack}
             onToggleMode={toggleMode}
+            onActivateFreeBall={handleActivateFreeBall}
+            freeBallTeam={freeBallTeam === "home" ? "own" : freeBallTeam === "away" ? "opponent" : null}
             onReset={() => {
               resetStats();
               resetTrajectories();
+              setFreeBallTeam(null);
               setCurrentMatch((prev) => {
                 if (!prev) return prev;
                 return {
