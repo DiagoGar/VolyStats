@@ -37,7 +37,6 @@ export function HalfCourt({
   const [drawState, setDrawState] = useState<{ zone: Zone; complex: Complex | null; playerRole: PlayerRole | null; trajectory: { start: { x: number; y: number }; end: { x: number; y: number } } | null } | null>(null);
   const [filterComplex, setFilterComplex] = useState<Complex | null>(null);
   const [filterEvaluation, setFilterEvaluation] = useState<Evaluation | null>(null);
-  const [showTrajectories, setShowTrajectories] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -50,10 +49,8 @@ export function HalfCourt({
     // Limpiar canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (showTrajectories) {
-      drawPersistentTrajectories(ctx, canvas, spikeTrajectories, filterComplex, filterEvaluation);
-    }
-  }, [spikeTrajectories, filterComplex, filterEvaluation, showTrajectories]);
+    drawPersistentTrajectories(ctx, canvas, spikeTrajectories, filterComplex, filterEvaluation);
+  }, [spikeTrajectories, filterComplex, filterEvaluation]);
 
   const getValue = (zone: Zone) => {
     if (stats.mode === "cantidad") {
@@ -85,8 +82,8 @@ export function HalfCourt({
   };
 
   const handleTrajectoryDrawn = (
-    teamParam: "own" | "opponent",
-    zone: Zone,
+    _teamParam: "own" | "opponent",
+    _zone: Zone,
     start: { x: number; y: number },
     end: { x: number; y: number }
   ) => {
@@ -183,13 +180,6 @@ export function HalfCourt({
 
       {/* Controles de filtros */}
       <div className="trajectory-controls">
-        <button 
-          className={`control-btn ${showTrajectories ? 'active' : ''}`}
-          onClick={() => setShowTrajectories(!showTrajectories)}
-        >
-          {showTrajectories ? 'Ocultar' : 'Mostrar'} Trayectorias
-        </button>
-        
         <div className="filter-group">
           <label>Complejo:</label>
           <select 
