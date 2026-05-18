@@ -57,6 +57,20 @@ export interface SetDistributionStat {
   successRate: number;
 }
 
+export interface TacticalSetContextStat {
+  key: string;
+  label: string;
+  total: number;
+  successRate: number;
+  dominantZone: SetDistributionZone | null;
+  distributions: SetDistributionStat[];
+}
+
+export interface TacticalInsight {
+  id: string;
+  text: string;
+}
+
 export interface PlayerAnalysis {
   player: Player;
   match: Match;
@@ -95,7 +109,13 @@ export interface PlayerAnalysis {
     successRate: number;
     averagePrecisionDistance: number;
     dominantZone: SetDistributionZone | null;
+    bestSuccessZone: SetDistributionZone | null;
     distributions: SetDistributionStat[];
+    tactical: {
+      byComplex: TacticalSetContextStat[];
+      byRotation: TacticalSetContextStat[];
+      insights: TacticalInsight[];
+    };
     trajectories: AnalysisTrajectory[];
     contactPoints: AnalysisContactPoint[];
   };

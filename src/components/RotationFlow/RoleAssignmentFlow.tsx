@@ -68,6 +68,7 @@ export function RoleAssignmentFlow({
   const [currentTeam, setCurrentTeam] = useState<"home" | "away">("home");
   const [draggedPlayer, setDraggedPlayer] = useState<Player | null>(null);
   const [dragOverPosition, setDragOverPosition] = useState<CourtPosition | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const currentTeamData = currentTeam === "home" ? match.homeTeam : match.awayTeam;
   const currentAssignments = currentTeam === "home" ? homeAssignments : awayAssignments;
@@ -84,6 +85,7 @@ export function RoleAssignmentFlow({
 
   const handleDragStart = (player: Player) => {
     setDraggedPlayer(player);
+    setSelectedPlayer(player);
   };
 
   const handleDragOver = (e: React.DragEvent, position: CourtPosition) => {
@@ -96,11 +98,12 @@ export function RoleAssignmentFlow({
   };
 
   const handleDrop = (position: CourtPosition) => {
-    if (!draggedPlayer) return;
+    const playerToAssign = draggedPlayer ?? selectedPlayer;
+    if (!playerToAssign) return;
 
     // Verificar si el jugador ya está asignado a otra posición
     const currentPosition = Object.entries(currentAssignments).find(
-      ([_, player]) => player?.id === draggedPlayer.id
+      ([_, player]) => player?.id === playerToAssign.id
     )?.[0];
 
     if (currentPosition) {
@@ -111,12 +114,12 @@ export function RoleAssignmentFlow({
       if (currentTeam === "home") {
         setHomeAssignments({
           ...updatedAssignments,
-          [position]: draggedPlayer,
+          [position]: playerToAssign,
         });
       } else {
         setAwayAssignments({
           ...updatedAssignments,
-          [position]: draggedPlayer,
+          [position]: playerToAssign,
         });
       }
     } else {
@@ -124,18 +127,23 @@ export function RoleAssignmentFlow({
       if (currentTeam === "home") {
         setHomeAssignments({
           ...homeAssignments,
-          [position]: draggedPlayer,
+          [position]: playerToAssign,
         });
       } else {
         setAwayAssignments({
           ...awayAssignments,
-          [position]: draggedPlayer,
+          [position]: playerToAssign,
         });
       }
     }
 
     setDraggedPlayer(null);
     setDragOverPosition(null);
+    setSelectedPlayer(null);
+  };
+
+  const handleSelectPlayer = (player: Player) => {
+    setSelectedPlayer((current) => (current?.id === player.id ? null : player));
   };
 
   const handleRemoveAssignment = (position: CourtPosition) => {
@@ -158,6 +166,9 @@ export function RoleAssignmentFlow({
       return;
     }
     setCurrentTeam(currentTeam === "home" ? "away" : "home");
+    setDraggedPlayer(null);
+    setDragOverPosition(null);
+    setSelectedPlayer(null);
   };
 
   const handleConfirmAssignments = () => {
@@ -252,6 +263,24 @@ export function RoleAssignmentFlow({
           Arrastrando: #{draggedPlayer.number} {draggedPlayer.name}
         </div>
       )}
+      {selectedPlayer && !draggedPlayer && (
+        <div style={{
+          position: "fixed",
+          top: "20px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#1f2937",
+          color: "white",
+          padding: "8px 16px",
+          borderRadius: "20px",
+          fontSize: "14px",
+          fontWeight: "bold",
+          zIndex: 1000,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>
+          Seleccionado: #{selectedPlayer.number} {selectedPlayer.name}. Toca una posición para ubicarlo.
+        </div>
+      )}
 
       {/* Asignaciones con Drag & Drop */}
       <div style={{
@@ -268,17 +297,24 @@ export function RoleAssignmentFlow({
                 onDragOver={(e) => handleDragOver(e, position)}
                 onDragLeave={handleDragLeave}
                 onDrop={() => handleDrop(position)}
+                onClick={() => handleDrop(position)}
+                onPointerDown={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
                 style={{
                   padding: "12px",
                   border: `2px ${isDragOver ? 'solid' : 'dashed'} ${isDragOver ? '#27ae60' : '#ddd'}`,
                   borderRadius: "8px",
-                  background: assigned ? "#e8f5e9" : isDragOver ? "#d4edda" : "#fafafa",
+                  background: assigned ? "#e8f5e9" : isDragOver || selectedPlayer ? "#d4edda" : "#fafafa",
                   minHeight: "80px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
                   alignItems: "center",
                   cursor: "pointer",
+                  touchAction: "manipulation",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
                   transition: "all 0.2s ease",
                   transform: isDragOver ? "scale(1.05)" : "scale(1)",
                   boxShadow: isDragOver ? "0 4px 8px rgba(0,0,0,0.1)" : "none",
@@ -339,13 +375,19 @@ export function RoleAssignmentFlow({
                 key={player.id}
                 draggable
                 onDragStart={() => handleDragStart(player)}
+                onClick={() => handleSelectPlayer(player)}
+                onPointerDown={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
                 style={{
                   padding: "12px",
-                  border: "2px solid #3498db",
+                  border: selectedPlayer?.id === player.id ? "2px solid #27ae60" : "2px solid #3498db",
                   borderRadius: "8px",
-                  background: "#f8f9fa",
+                  background: selectedPlayer?.id === player.id ? "#e8f5e9" : "#f8f9fa",
                   cursor: "grab",
                   userSelect: "none",
+                  touchAction: "manipulation",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
                   transition: "all 0.2s ease",
                   position: "relative",
                 }}
@@ -355,7 +397,7 @@ export function RoleAssignmentFlow({
                   e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#f8f9fa";
+                  e.currentTarget.style.background = selectedPlayer?.id === player.id ? "#e8f5e9" : "#f8f9fa";
                   e.currentTarget.style.transform = "scale(1)";
                   e.currentTarget.style.boxShadow = "none";
                 }}

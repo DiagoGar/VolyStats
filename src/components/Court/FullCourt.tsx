@@ -461,6 +461,10 @@ export function FullCourt({
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+  const suppressNativeTouchBehavior = (event: React.SyntheticEvent) => {
+    event.preventDefault();
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!interactionMode) return;
     const canvas = interactionCanvasRef.current;
@@ -625,7 +629,9 @@ export function FullCourt({
           key={`${team}-${position}`}
           className={`player-marker ${team} ${isSelected ? "selected" : ""}`}
           style={{ left: `${coords.x * 100}%`, top: `${coords.y * 100}%` }}
+          onPointerDown={suppressNativeTouchBehavior}
           onClick={() => handlePlayerAttack(team, position, player)}
+          onContextMenu={suppressNativeTouchBehavior}
           type="button"
         >
           <span className="player-name">{label}</span>
@@ -873,7 +879,10 @@ export function FullCourt({
       )}
 
       {/* Cancha completa */}
-      <div className={`court ${rallyStatus === "waiting_serve" ? "court--waiting-serve" : ""}`}>
+      <div
+        className={`court ${rallyStatus === "waiting_serve" ? "court--waiting-serve" : ""}`}
+        onContextMenu={suppressNativeTouchBehavior}
+      >
         {rallyStatus === "waiting_serve" && (
           <div className="court-waiting-overlay" aria-live="polite">
             Esperando saque
@@ -937,6 +946,7 @@ export function FullCourt({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onContextMenu={suppressNativeTouchBehavior}
         />
       </div>
       {/* Leyenda de colores */}

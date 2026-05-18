@@ -183,6 +183,10 @@ function AnalysisSidebar({ analysis }: { analysis: PlayerAnalysis | null }) {
             <strong>{analysis.set.dominantZone ? `Z${analysis.set.dominantZone}` : "-"}</strong>
             <span>Zona dominante</span>
           </div>
+          <div>
+            <strong>{analysis.set.bestSuccessZone ? `Z${analysis.set.bestSuccessZone}` : "-"}</strong>
+            <span>Mejor eficiencia</span>
+          </div>
         </div>
         <div className="analysis-context-group">
           <h4>Precision</h4>
@@ -201,6 +205,56 @@ function AnalysisSidebar({ analysis }: { analysis: PlayerAnalysis | null }) {
                 <span>{item.label}</span>
                 <strong>{item.total}</strong>
                 <span>{formatPercent(item.rate)}</span>
+                <span>{formatPercent(item.successRate)} exito</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="analysis-context-group">
+          <h4>Lectura tactica</h4>
+          {analysis.set.tactical.insights.length === 0 ? (
+            <p>Sin datos suficientes</p>
+          ) : (
+            analysis.set.tactical.insights.map((insight) => (
+              <div key={insight.id} className="analysis-chip-row">
+                <span>{insight.text}</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="analysis-context-group">
+          <h4>Distribucion por complejo</h4>
+          {analysis.set.tactical.byComplex.length === 0 ? (
+            <p>Sin datos</p>
+          ) : (
+            analysis.set.tactical.byComplex.map((item) => (
+              <div key={item.key} className="analysis-chip-row" style={{ alignItems: "flex-start", flexDirection: "column", gap: "6px" }}>
+                <span>
+                  {item.label} · {item.total} armados · {formatPercent(item.successRate)} exito
+                </span>
+                <span>
+                  Dominante: {item.dominantZone ? `Z${item.dominantZone}` : "-"}
+                </span>
+                <span>
+                  {item.distributions
+                    .filter((distribution) => distribution.total > 0)
+                    .map((distribution) => `${distribution.label}: ${distribution.total} (${formatPercent(distribution.rate)})`)
+                    .join(" · ") || "Sin destinos"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="analysis-context-group">
+          <h4>Distribucion por rotacion</h4>
+          {analysis.set.tactical.byRotation.length === 0 ? (
+            <p>Sin datos</p>
+          ) : (
+            analysis.set.tactical.byRotation.map((item) => (
+              <div key={item.key} className="analysis-chip-row">
+                <span>{item.label}</span>
+                <strong>{item.total}</strong>
+                <span>{item.dominantZone ? `Z${item.dominantZone}` : "-"}</span>
                 <span>{formatPercent(item.successRate)} exito</span>
               </div>
             ))

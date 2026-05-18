@@ -9,6 +9,8 @@ import type {
   ReceptionQuality,
   SetDistributionStat,
   SetDistributionZone,
+  TacticalInsight,
+  TacticalSetContextStat,
 } from "@/types/analysis";
 import type { Action, ActionEvaluation, ActionZone, Match, Player } from "@/types/volley-model";
 import { getActionZoneFromPosition, getCourtPositionCoords, inferAttackLaneFromContext } from "@/utils/courtGeometry";
@@ -275,6 +277,87 @@ const buildSetDistributionStats = (
   });
 };
 
+const getDominantSetZone = (distributions: SetDistributionStat[]): SetDistributionZone | null => {
+  const dominant = [...distributions].sort((left, right) => right.total - left.total)[0] ?? null;
+  return dominant && dominant.total > 0 ? dominant.zone : null;
+};
+
+const getBestSetSuccessZone = (distributions: SetDistributionStat[]): SetDistributionZone | null => {
+  const eligible = distributions.filter((item) => item.total > 0);
+  const best = [...eligible].sort((left, right) => {
+    if (right.successRate !== left.successRate) return right.successRate - left.successRate;
+    return right.total - left.total;
+  })[0] ?? null;
+  return best ? best.zone : null;
+};
+
+const buildSetContextStats = (
+  setActions: Action[],
+  teamSide: AnalysisTeamSide,
+  followUps: Map<string, Action | null>,
+  groupBy: (action: Action) => string,
+  labelBy: (key: string) => string = (key) => key
+): TacticalSetContextStat[] => {
+  const groups = new Map<string, Action[]>();
+
+  setActions.forEach((action) => {
+    const key = groupBy(action);
+    groups.set(key, [...(groups.get(key) ?? []), action]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([key, items]) => {
+      const distributions = buildSetDistributionStats(items, teamSide, followUps);
+      const successCount = items.filter((action) => {
+        const followUp = followUps.get(action.id);
+        return followUp?.evaluation ? ATTACK_SUCCESS_EVALUATIONS.has(followUp.evaluation) : false;
+      }).length;
+
+      return {
+        key,
+        label: labelBy(key),
+        total: items.length,
+        successRate: percentage(successCount, items.length),
+        dominantZone: getDominantSetZone(distributions),
+        distributions,
+      };
+    })
+    .sort((left, right) => right.total - left.total);
+};
+
+const buildSetInsights = (
+  byComplex: TacticalSetContextStat[],
+  byRotation: TacticalSetContextStat[],
+  bestSuccessZone: SetDistributionZone | null
+): TacticalInsight[] => {
+  const insights: TacticalInsight[] = [];
+  const topComplex = byComplex[0] ?? null;
+  const topRotation = byRotation[0] ?? null;
+
+  if (topComplex?.dominantZone) {
+    insights.push({
+      id: "complex-dominant",
+      text: `En ${topComplex.label} domina Zona ${topComplex.dominantZone}.`,
+    });
+  }
+
+  if (topRotation?.dominantZone) {
+    insights.push({
+      id: "rotation-dominant",
+      text: `${topRotation.label} carga más hacia Zona ${topRotation.dominantZone}.`,
+    });
+  }
+
+  if (bestSuccessZone) {
+    insights.push({
+      id: "best-zone",
+      text: `La mejor eficiencia aparece cuando distribuye a Zona ${bestSuccessZone}.`,
+    });
+  }
+
+  return insights;
+};
+
 const buildContextStats = (
   actions: Action[],
   groupBy: (action: Action) => string,
@@ -317,7 +400,16 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
     return followUp?.evaluation ? ATTACK_SUCCESS_EVALUATIONS.has(followUp.evaluation) : false;
   }).length;
   const setDistributions = buildSetDistributionStats(setActions, teamSide, setFollowUps);
-  const dominantSetZone = [...setDistributions].sort((left, right) => right.total - left.total)[0] ?? null;
+  const dominantSetZone = getDominantSetZone(setDistributions);
+  const bestSetSuccessZone = getBestSetSuccessZone(setDistributions);
+  const setByComplex = buildSetContextStats(
+    setActions.filter((action) => action.complex),
+    teamSide,
+    setFollowUps,
+    (action) => action.complex ?? "Sin complejo"
+  );
+  const setByRotation = buildSetContextStats(setActions, teamSide, setFollowUps, normalizeRotation);
+  const setInsights = buildSetInsights(setByComplex, setByRotation, bestSetSuccessZone);
   const setPrecisionDistances = setActions
     .map((action) => {
       const destinationZone = getSetDestinationZone(action, teamSide, setFollowUps.get(action.id));
@@ -406,8 +498,14 @@ export const buildPlayerAnalysis = (match: Match, playerId: string): PlayerAnaly
       successRate: percentage(setSuccessCount, setActions.length),
       averagePrecisionDistance:
         setPrecisionDistances.reduce((sum, distance) => sum + distance, 0) / Math.max(setPrecisionDistances.length, 1),
-      dominantZone: dominantSetZone && dominantSetZone.total > 0 ? dominantSetZone.zone : null,
+      dominantZone: dominantSetZone,
+      bestSuccessZone: bestSetSuccessZone,
       distributions: setDistributions,
+      tactical: {
+        byComplex: setByComplex,
+        byRotation: setByRotation,
+        insights: setInsights,
+      },
       trajectories: setActions.map((action) => ({
         id: action.id,
         kind: "set" as const,

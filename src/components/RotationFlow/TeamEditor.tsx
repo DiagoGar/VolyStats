@@ -110,6 +110,13 @@ export function TeamEditor({
   };
 
   const handleSave = () => {
+    const normalizedTeamName = teamName.trim();
+
+    if (!normalizedTeamName) {
+      alert("El nombre del equipo es obligatorio");
+      return;
+    }
+
     if (players.length < 6) {
       alert("El equipo necesita al menos 6 jugadores");
       return;
@@ -117,7 +124,7 @@ export function TeamEditor({
 
     const updatedTeam: Team = {
       id: team?.id || crypto.randomUUID(),
-      name: teamName,
+      name: normalizedTeamName,
       players: players.map(normalizePlayer),
       color: teamColor,
       createdAt: team?.createdAt || Date.now(),
@@ -137,7 +144,7 @@ export function TeamEditor({
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="Ej: Equipo A (opcional)"
+            placeholder="Ej: Equipo A"
           />
         </div>
 

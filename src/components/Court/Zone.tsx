@@ -36,6 +36,7 @@ export function ZoneButton({
     <div
       className={`zone ${disabled ? "disabled" : ""}`}
       {...handlers}
+      onContextMenu={(event) => event.preventDefault()}
     >
       <div className="zone-label">Zona {zone}</div>
       {player && (
@@ -44,6 +45,10 @@ export function ZoneButton({
           className="player-name player-name-btn"
           onPointerDown={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
           onClick={(event) => {
             event.stopPropagation();
             onPlayerClick?.(zone, player);
