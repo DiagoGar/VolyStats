@@ -65,7 +65,7 @@ interface FullCourtProps {
     playerRole?: PlayerRole,
     courtPosition?: CourtPosition
   ) => void;
-  onActivateFreeBall: (team: "own" | "opponent") => void;
+  onActivateFreeBall: () => void;
   freeBallTeam?: "own" | "opponent" | null;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
@@ -158,6 +158,26 @@ export function FullCourt({
   };
 
   const getExpectedRallyAction = (team: "own" | "opponent"): "reception" | "defense" | "set" | "attack" | null => {
+    if (freeBallTeam) {
+      if (team !== freeBallTeam) return null;
+
+      const freeBallTeamId = freeBallTeam === "own" ? "home" : "away";
+
+      if (!lastActionType || !lastActionTeam || lastActionTeam !== freeBallTeamId) {
+        return "reception";
+      }
+
+      if (lastActionType === "defense") {
+        return "set";
+      }
+
+      if (lastActionType === "set") {
+        return "attack";
+      }
+
+      return null;
+    }
+
     if (rallyStatus === "awaiting_serve_reception") {
       return team === receivingSide ? "reception" : null;
     }
@@ -191,6 +211,25 @@ export function FullCourt({
   };
 
   const getCurrentStepLabel = () => {
+    if (freeBallTeam) {
+      const freeBallTeamId = freeBallTeam === "own" ? "home" : "away";
+      const freeBallLabel = freeBallTeam === "own" ? teamNames.home : teamNames.away;
+
+      if (!lastActionType || !lastActionTeam || lastActionTeam !== freeBallTeamId) {
+        return `Free ball para ${freeBallLabel}: sigue el control.`;
+      }
+
+      if (lastActionType === "defense") {
+        return `Free ball para ${freeBallLabel}: sigue el armado.`;
+      }
+
+      if (lastActionType === "set") {
+        return `Free ball para ${freeBallLabel}: sigue el ataque.`;
+      }
+
+      return `Free ball para ${freeBallLabel}: sigue la construcción.`;
+    }
+
     if (rallyStatus === "awaiting_serve_reception") {
       return `Recepción del saque de ${receivingTeamLabel}`;
     }
@@ -209,6 +248,20 @@ export function FullCourt({
   };
 
   const getNextExpectedTeam = (): "own" | "opponent" | null => {
+    if (freeBallTeam) {
+      const freeBallTeamId = freeBallTeam === "own" ? "home" : "away";
+
+      if (!lastActionType || !lastActionTeam || lastActionTeam !== freeBallTeamId) {
+        return freeBallTeam;
+      }
+
+      if (lastActionType === "defense" || lastActionType === "set") {
+        return freeBallTeam;
+      }
+
+      return null;
+    }
+
     if (rallyStatus === "awaiting_serve_reception") {
       return receivingSide;
     }
@@ -229,6 +282,7 @@ export function FullCourt({
   };
 
   const nextExpectedTeam = getNextExpectedTeam();
+  const freeBallReceiverLabel = nextExpectedTeam === "own" ? teamNames.home : nextExpectedTeam === "opponent" ? teamNames.away : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -857,15 +911,13 @@ export function FullCourt({
                 className={`serve-option ${freeBallTeam ? "active" : ""}`}
                 onClick={() => {
                   if (nextExpectedTeam) {
-                    onActivateFreeBall(nextExpectedTeam);
+                    onActivateFreeBall();
                   }
                 }}
                 disabled={!nextExpectedTeam}
                 title={
                   nextExpectedTeam
-                    ? `Marcar la siguiente construcción de ${
-                        nextExpectedTeam === "own" ? teamNames.home : teamNames.away
-                      } como Free ball`
+                    ? `Marcar la siguiente construcción de ${freeBallReceiverLabel} como Free ball`
                     : "No hay equipo disponible para activar Free ball"
                 }
               >

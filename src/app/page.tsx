@@ -36,6 +36,12 @@ const getCurrentRallyActions = (match: Match) => {
   return match.actions.slice(latestServeIndex + 1);
 };
 
+const getLastRecordedActionTeam = (match: Match): MatchTeamSide | null => {
+  const latestAction = match.actions[match.actions.length - 1];
+  if (!latestAction) return null;
+  return latestAction.team ?? (latestAction.teamId === match.homeTeam.id ? "home" : "away");
+};
+
 const getRallyComplexPhase = (match: Match): RallyComplexPhase => {
   const servingTeam = match.servingTeam ?? "home";
   const receivingTeam = getOpposingTeam(servingTeam);
@@ -901,16 +907,30 @@ export default function Page() {
     playerRole?: PlayerRole,
     courtPosition?: CourtPosition
   ) => {
-    if (!currentMatch || currentMatch.rallyStatus !== "awaiting_serve_reception") return;
-    const servingSide: "own" | "opponent" = currentMatch.servingTeam === "home" ? "own" : "opponent";
-    if (team === servingSide) return;
-    const evaluation = inferDefenseEvaluation(team, end);
+    if (!currentMatch) return;
+    const isServeReception = currentMatch.rallyStatus === "awaiting_serve_reception";
+    const isFreeBallReception =
+      currentMatch.rallyStatus === "in_play" &&
+      freeBallTeam === (team === "own" ? "home" : "away");
 
-    addTrajectory(team, zone as any, start, end, "K1", playerRole, evaluation, "defense");
+    if (!isServeReception && !isFreeBallReception) return;
+
+    const servingSide: "own" | "opponent" = currentMatch.servingTeam === "home" ? "own" : "opponent";
+    if (isServeReception && team === servingSide) return;
+    const evaluation = inferDefenseEvaluation(team, end);
+    const inferredComplex = inferComplexFromRallyState(
+      currentMatch,
+      team === "own" ? "home" : "away",
+      "recepcion",
+      freeBallTeam,
+      isServeReception ? "K1" : undefined
+    );
+
+    addTrajectory(team, zone as any, start, end, inferredComplex, playerRole, evaluation, "defense");
     addMatchAction({
       team,
       zone,
-      complex: "K1",
+      complex: inferredComplex,
       playerRole,
       evaluation,
       spike: { start, end },
@@ -922,11 +942,13 @@ export default function Page() {
     });
   };
 
-  const handleActivateFreeBall = (team: "own" | "opponent") => {
+  const handleActivateFreeBall = () => {
     if (!currentMatch || currentMatch.rallyStatus !== "in_play") return;
+    const lastActionTeam = getLastRecordedActionTeam(currentMatch);
+    if (!lastActionTeam) return;
+    const receiverTeam: MatchTeamSide = lastActionTeam === "home" ? "away" : "home";
     setFreeBallTeam((prev) => {
-      const nextTeam = team === "own" ? "home" : "away";
-      return prev === nextTeam ? null : nextTeam;
+      return prev === receiverTeam ? null : receiverTeam;
     });
   };
 

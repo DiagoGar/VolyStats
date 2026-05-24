@@ -53,7 +53,7 @@ interface Props {
     playerRole?: PlayerRole,
     courtPosition?: CourtPosition
   ) => void;
-  onActivateFreeBall: (team: "own" | "opponent") => void;
+  onActivateFreeBall: () => void;
   freeBallTeam?: "own" | "opponent" | null;
   onRallyResult: (team: "own" | "opponent") => void;
   onRallyDraw: (
