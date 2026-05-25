@@ -109,7 +109,6 @@ export function FullCourt({
   const [showLegend, setShowLegend] = useState(true);
   const [selectedHistoryRallyId, setSelectedHistoryRallyId] = useState<string | null>(null);
   const [serveType, setServeType] = useState<ServeType>("flotado");
-  const [serveTrajectory, setServeTrajectory] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
   const [serveDrawOpen, setServeDrawOpen] = useState(false);
   const [attackDrawState, setAttackDrawState] = useState<{
     team: "own" | "opponent";
@@ -132,11 +131,12 @@ export function FullCourt({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const interactionCanvasRef = useRef<HTMLCanvasElement>(null);
   const historyRallies = trajectoryHistory?.rallies ?? [];
+  const isSubstitutionVisible = rallyStatus === "waiting_serve" && substitutionOpen;
   const servingSide: "own" | "opponent" = servingTeam === "home" ? "own" : "opponent";
   const receivingSide: "own" | "opponent" = servingSide === "own" ? "opponent" : "own";
   const servingTeamLabel = servingTeam === "home" ? teamNames.home : teamNames.away;
   const receivingTeamLabel = servingTeam === "home" ? teamNames.away : teamNames.home;
-  const shouldEnableServeDrawing = rallyStatus === "waiting_serve" && (!serveTrajectory || serveDrawOpen);
+  const shouldEnableServeDrawing = rallyStatus === "waiting_serve" && serveDrawOpen;
   const interactionMode: "rally" | "serve" | null =
     attackDrawState ? "rally" : shouldEnableServeDrawing ? "serve" : null;
 
@@ -369,13 +369,6 @@ export function FullCourt({
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  useEffect(() => {
-    if (rallyStatus !== "waiting_serve" && substitutionOpen) {
-      setSubstitutionOpen(false);
-      setSubstitutionMessage(null);
-    }
-  }, [rallyStatus, substitutionOpen]);
-
   const getValue = (team: "own" | "opponent", zone: Zone) => {
     const teamStats = stats[team];
     if (teamStats.mode === "cantidad") {
@@ -429,10 +422,21 @@ export function FullCourt({
     });
   };
 
-  const handleServeResult = (serveResult: ServeResult) => {
-    if (!serveTrajectory) return;
-    onServe(servingSide, serveType, serveResult, serveTrajectory);
-    setServeTrajectory(null);
+  const isBallInsideOpponentCourt = (
+    team: "own" | "opponent",
+    end: { x: number; y: number }
+  ) => {
+    const horizontalMargin = 0.02;
+    const verticalMargin = 0.02;
+    const isBottom = isTeamOnBottom(team, courtOrientation);
+    const withinWidth = end.x >= horizontalMargin && end.x <= 1 - horizontalMargin;
+    const withinLength = end.y >= verticalMargin && end.y <= 1 - verticalMargin;
+    const crossedNet = isBottom ? end.y < 0.5 - verticalMargin : end.y > 0.5 + verticalMargin;
+    return withinWidth && withinLength && crossedNet;
+  };
+
+  const resolveServeResult = (serve: { start: { x: number; y: number }; end: { x: number; y: number } }): ServeResult => {
+    return isBallInsideOpponentCourt(servingSide, serve.end) ? "en_juego" : "error";
   };
 
   const handleAttackDrawn = (
@@ -466,6 +470,10 @@ export function FullCourt({
     if (expectedAction === "attack") {
       onAttack(team, legacyZone, attackDrawState.position, attackDrawState.playerRole, start);
     }
+    const resolvedEvaluation =
+      expectedAction === "attack" && !isBallInsideOpponentCourt(team, end)
+        ? "--"
+        : undefined;
     onRallyDraw(
       team,
       legacyZone,
@@ -474,7 +482,7 @@ export function FullCourt({
       undefined,
       attackDrawState.playerId,
       attackDrawState.playerRole,
-      undefined,
+      resolvedEvaluation,
       attackDrawState.position
     );
     setAttackDrawState(null);
@@ -527,6 +535,8 @@ export function FullCourt({
 
     if (interactionMode === "serve") {
       if (!isAllowedServeStart(pos, servingSide)) return;
+      setSubstitutionOpen(false);
+      setSubstitutionMessage(null);
       setServeDrawStart(pos);
       setServeDrawEnd(pos);
       setIsServeDrawing(true);
@@ -585,7 +595,8 @@ export function FullCourt({
         setIsServeDrawing(false);
         return;
       }
-      setServeTrajectory({ start: serveDrawStart, end: serveDrawEnd });
+      const serve = { start: serveDrawStart, end: serveDrawEnd };
+      onServe(servingSide, serveType, resolveServeResult(serve), serve);
       setServeDrawOpen(false);
       setIsServeDrawing(false);
       setServeDrawEnd(null);
@@ -611,6 +622,34 @@ export function FullCourt({
 
   const clearSelectedTrajectory = () => {
     setSelectedHistoryRallyId(null);
+  };
+
+  const handleCourtDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isServeDrawing || isAttackDrawing || attackDrawState) return;
+
+    const trajectoriesInRally = getCurrentRallyTrajectories();
+    const targetPoint = trajectoriesInRally[trajectoriesInRally.length - 1]?.spike.end ?? null;
+    if (!targetPoint) return;
+
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const clickPos = {
+      x: (e.clientX - bounds.left) / bounds.width,
+      y: (e.clientY - bounds.top) / bounds.height,
+    };
+    const dx = clickPos.x - targetPoint.x;
+    const dy = clickPos.y - targetPoint.y;
+    const isNearBallFall = Math.sqrt(dx * dx + dy * dy) <= 0.14;
+
+    if (!isNearBallFall) return;
+
+    if (rallyStatus === "awaiting_serve_reception") {
+      onRallyResult(servingSide);
+      return;
+    }
+
+    if (rallyStatus === "in_play" && lastActionType === "attack" && lastActionTeam) {
+      onRallyResult(lastActionTeam === "home" ? "own" : "opponent");
+    }
   };
 
   const handleOpenSubstitution = () => {
@@ -685,6 +724,10 @@ export function FullCourt({
           style={{ left: `${coords.x * 100}%`, top: `${coords.y * 100}%` }}
           onPointerDown={suppressNativeTouchBehavior}
           onClick={() => handlePlayerAttack(team, position, player)}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
           onContextMenu={suppressNativeTouchBehavior}
           type="button"
         >
@@ -750,38 +793,9 @@ export function FullCourt({
             <span className="serve-label">Trayectoria:</span>
             <div className="serve-options">
               <button type="button" className="serve-option" onClick={() => setServeDrawOpen((prev) => !prev)}>
-                {serveTrajectory ? "Redibujar" : "Dibujar"}
+                {serveDrawOpen ? "Cancelar dibujo" : "Dibujar"}
               </button>
-              {serveTrajectory && <span className="serve-helper">Lista</span>}
-            </div>
-          </div>
-          <div className="serve-row">
-            <span className="serve-label">Resultado:</span>
-            <div className="serve-options">
-              <button
-                type="button"
-                className="serve-result in-play"
-                onClick={() => handleServeResult("en_juego")}
-                disabled={!serveTrajectory}
-              >
-                En juego
-              </button>
-              <button
-                type="button"
-                className="serve-result error"
-                onClick={() => handleServeResult("error")}
-                disabled={!serveTrajectory}
-              >
-                Error
-              </button>
-              <button
-                type="button"
-                className="serve-result ace"
-                onClick={() => handleServeResult("ace")}
-                disabled={!serveTrajectory}
-              >
-                Ace
-              </button>
+              <span className="serve-helper">Al soltar se registra</span>
             </div>
           </div>
           <div className="serve-row serve-row--substitution">
@@ -789,14 +803,14 @@ export function FullCourt({
             <div className="serve-options">
               <button
                 type="button"
-                className={`serve-option ${substitutionOpen ? "active" : ""}`}
+                className={`serve-option ${isSubstitutionVisible ? "active" : ""}`}
                 onClick={handleOpenSubstitution}
               >
                 Sustitucion
               </button>
             </div>
           </div>
-          {substitutionOpen && (
+          {isSubstitutionVisible && (
             <div className="substitution-panel">
               <div className="substitution-grid">
                 <div className="filter-group">
@@ -875,6 +889,10 @@ export function FullCourt({
             <span className="serve-label">Paso actual:</span>
             <span className="serve-value">Selecciona la jugadora o jugador receptor y dibuja hacia donde terminó la recepción.</span>
           </div>
+          <div className="serve-row">
+            <span className="serve-label">Cierre:</span>
+            <span className="serve-value">Si la pelota cayó y aún no tocaste al receptor, haz doble click cerca de la caída para marcar ace.</span>
+          </div>
         </div>
       )}
       {rallyStatus === "in_play" && (
@@ -885,23 +903,8 @@ export function FullCourt({
             <span className="serve-value">{getCurrentStepLabel()}</span>
           </div>
           <div className="serve-row">
-            <span className="serve-label">Punto:</span>
-            <div className="serve-options">
-              <button
-                type="button"
-                className="rally-result own"
-                onClick={() => onRallyResult("own")}
-              >
-                Propio
-              </button>
-              <button
-                type="button"
-                className="rally-result opponent"
-                onClick={() => onRallyResult("opponent")}
-              >
-                Contrario
-              </button>
-            </div>
+            <span className="serve-label">Cierre:</span>
+            <span className="serve-value">Después del ataque y antes de tocar al defensor, haz doble click cerca de donde cayó la pelota para marcar el punto.</span>
           </div>
           <div className="serve-row">
             <span className="serve-label">Contexto:</span>
@@ -934,6 +937,7 @@ export function FullCourt({
       <div
         className={`court ${rallyStatus === "waiting_serve" ? "court--waiting-serve" : ""}`}
         onContextMenu={suppressNativeTouchBehavior}
+        onDoubleClick={handleCourtDoubleClick}
       >
         {rallyStatus === "waiting_serve" && (
           <div className="court-waiting-overlay" aria-live="polite">
@@ -953,10 +957,10 @@ export function FullCourt({
         </div>
 
         {interactionMode === "serve" && (
-          <div className="court-hint">Saque: dibuja desde el fondo de la cancha</div>
+          <div className="court-hint">Saque: dibuja desde el fondo. Si no cruza al campo rival o cae fuera, se toma como error.</div>
         )}
         {rallyStatus === "awaiting_serve_reception" && !attackDrawState && (
-          <div className="court-hint">Recepción del saque: elige un receptor del equipo {receivingTeamLabel} y arrastra hacia donde terminó la recepción.</div>
+          <div className="court-hint">Recepción del saque: elige un receptor del equipo {receivingTeamLabel} o haz doble click cerca de la caída para marcar ace.</div>
         )}
         {interactionMode === "rally" && attackDrawState && (
           <div className="court-hint">

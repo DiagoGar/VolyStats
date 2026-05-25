@@ -278,8 +278,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 720px;
-  max-height: 1200px;
+  max-width: 660px;
+  max-height: 1100px;
   aspect-ratio: 1 / 2;
   border: 2px solid var(--court-ink);
   background:
@@ -547,8 +547,8 @@
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.7);
   color: #f8fafc;
-  padding: 6px 8px;
-  min-width: 108px;
+  padding: 5px 7px;
+  min-width: 100px;
   display: flex;
   flex-direction: column;
   gap: 2px;

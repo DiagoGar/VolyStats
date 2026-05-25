@@ -953,7 +953,7 @@ export default function Page() {
   };
 
   const handleRallyResult = (team: "own" | "opponent") => {
-    if (!currentMatch || currentMatch.rallyStatus !== "in_play") return;
+    if (!currentMatch || (currentMatch.rallyStatus !== "in_play" && currentMatch.rallyStatus !== "awaiting_serve_reception")) return;
 
     const winnerTeam: "home" | "away" = team === "own" ? "home" : "away";
     const currentServer = currentMatch.servingTeam ?? "home";
@@ -988,6 +988,14 @@ export default function Page() {
           ...latestAction,
           evaluation: latestActionTeam === winnerTeam ? "#" : "--",
         };
+      } else if (latestAction && latestAction.actionType === "saque") {
+        const latestActionTeam = latestAction.team ?? (latestAction.teamId === prev.homeTeam.id ? "home" : "away");
+        if (latestActionTeam === winnerTeam) {
+          nextActions[nextActions.length - 1] = {
+            ...latestAction,
+            serveResult: "ace",
+          };
+        }
       }
 
       if (hasSetWinner) {
