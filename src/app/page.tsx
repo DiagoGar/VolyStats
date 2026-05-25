@@ -517,6 +517,72 @@ export default function Page() {
     return { ok: true as const };
   };
 
+  const handleManualRotationAdvance = (teamType: "home" | "away") => {
+    if (!currentMatch || !roleAssignments) {
+      return { ok: false as const, message: "No hay partido activo." };
+    }
+    if (currentMatch.rallyStatus !== "waiting_serve") {
+      return { ok: false as const, message: "La rotacion manual solo se permite entre rallies." };
+    }
+
+    const assignments = getTeamAssignments(teamType);
+    if (!assignments) {
+      return { ok: false as const, message: "No hay rotacion activa para este equipo." };
+    }
+
+    const rotatedAssignments = rotateAssignmentsMap(assignments);
+    const rotationResult = applyLiberoCentralRules(
+      teamType,
+      rotatedAssignments,
+      currentMatch.servingTeam === teamType,
+      "manual-rotation"
+    );
+    const nextAssignments = rotationResult.assignments;
+
+    setRoleAssignments((prev) => {
+      if (!prev) return prev;
+      return teamType === "home"
+        ? { ...prev, homeTeamAssignments: nextAssignments }
+        : { ...prev, awayTeamAssignments: nextAssignments };
+    });
+
+    setCurrentMatch((prev) => {
+      if (!prev) return prev;
+
+      const previousRotation =
+        teamType === "home" ? prev.currentHomeRotation : prev.currentAwayRotation;
+      const nextRotation = {
+        ...previousRotation,
+        positions: nextAssignments,
+        currentRotationNumber: (previousRotation.currentRotationNumber + 1) % 6,
+        updatedAt: Date.now(),
+      };
+
+      return {
+        ...prev,
+        currentHomeRotation: teamType === "home" ? nextRotation : prev.currentHomeRotation,
+        currentAwayRotation: teamType === "away" ? nextRotation : prev.currentAwayRotation,
+        homeRotations:
+          teamType === "home"
+            ? prev.homeRotations.map((rotation, index, rotations) =>
+                index === rotations.length - 1 ? nextRotation : rotation
+              )
+            : prev.homeRotations,
+        awayRotations:
+          teamType === "away"
+            ? prev.awayRotations.map((rotation, index, rotations) =>
+                index === rotations.length - 1 ? nextRotation : rotation
+              )
+            : prev.awayRotations,
+        substitutions: rotationResult.events.length > 0
+          ? [...(prev.substitutions || []), ...rotationResult.events]
+          : prev.substitutions,
+      };
+    });
+
+    return { ok: true as const };
+  };
+
   const getPlayerFromTeamByZone = (team: "own" | "opponent", zone: number): Player | undefined => {
     if (!roleAssignments) return undefined;
     const position = zone as CourtPosition;
@@ -1232,6 +1298,7 @@ export default function Page() {
             lastActionType={currentMatch.lastActionType ?? null}
             lastActionTeam={currentMatch.lastActionTeam ?? null}
             onSubstitute={handleManualSubstitution}
+            onRotateTeam={handleManualRotationAdvance}
             onAttack={handleAttack}
             onToggleMode={toggleMode}
             onActivateFreeBall={handleActivateFreeBall}

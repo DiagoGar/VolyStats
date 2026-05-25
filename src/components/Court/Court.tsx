@@ -29,6 +29,9 @@ interface Props {
     outPlayerId: string,
     inPlayerId: string
   ) => { ok: true } | { ok: false; message: string };
+  onRotateTeam: (
+    teamType: "home" | "away"
+  ) => { ok: true } | { ok: false; message: string };
   onAttack: (
     team: "own" | "opponent",
     zone: Zone,
@@ -81,6 +84,7 @@ export function Court({
   lastActionType,
   lastActionTeam,
   onSubstitute,
+  onRotateTeam,
   onAttack,
   onToggleMode,
   onReset,
@@ -106,6 +110,7 @@ export function Court({
           lastActionType={lastActionType}
           lastActionTeam={lastActionTeam}
           onSubstitute={onSubstitute}
+          onRotateTeam={onRotateTeam}
           onAttack={onAttack}
           onToggleMode={onToggleMode}
           onServe={onServe}

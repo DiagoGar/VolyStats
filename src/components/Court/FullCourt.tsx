@@ -42,6 +42,9 @@ interface FullCourtProps {
     outPlayerId: string,
     inPlayerId: string
   ) => { ok: true } | { ok: false; message: string };
+  onRotateTeam: (
+    teamType: "home" | "away"
+  ) => { ok: true } | { ok: false; message: string };
   onAttack: (
     team: "own" | "opponent",
     zone: Zone,
@@ -93,6 +96,7 @@ export function FullCourt({
   lastActionType,
   lastActionTeam,
   onSubstitute,
+  onRotateTeam,
   onAttack,
   onToggleMode,
   onServe,
@@ -691,6 +695,16 @@ export function FullCourt({
     setSubstitutionOpen(false);
   };
 
+  const handleRotateTeam = (team: "home" | "away") => {
+    setSubstitutionMessage(null);
+    const result = onRotateTeam(team);
+    if (!result.ok) {
+      setSubstitutionMessage(result.message);
+      return;
+    }
+    setSubstitutionOpen(false);
+  };
+
   const serverPlayer = getPlayerAtZone(servingSide, 1);
   const legacyZones: Zone[] = [1, 2, 3, 4, 6];
   const getValueForPosition = (team: "own" | "opponent", position: CourtPosition) => {
@@ -810,6 +824,31 @@ export function FullCourt({
               </button>
             </div>
           </div>
+          <div className="serve-row serve-row--rotation">
+            <span className="serve-label">Rotacion:</span>
+            <div className="rotation-tools">
+              <button
+                type="button"
+                className="rotation-advance-btn"
+                onClick={() => handleRotateTeam("home")}
+                title={`Avanzar una rotacion de ${teamNames.home}`}
+                aria-label={`Avanzar una rotacion de ${teamNames.home}`}
+              >
+                <span aria-hidden="true">🔄</span>
+                <span>{teamNames.home}</span>
+              </button>
+              <button
+                type="button"
+                className="rotation-advance-btn"
+                onClick={() => handleRotateTeam("away")}
+                title={`Avanzar una rotacion de ${teamNames.away}`}
+                aria-label={`Avanzar una rotacion de ${teamNames.away}`}
+              >
+                <span aria-hidden="true">🔄</span>
+                <span>{teamNames.away}</span>
+              </button>
+            </div>
+          </div>
           {isSubstitutionVisible && (
             <div className="substitution-panel">
               <div className="substitution-grid">
@@ -879,6 +918,9 @@ export function FullCourt({
                 </button>
               </div>
             </div>
+          )}
+          {substitutionMessage && !isSubstitutionVisible && (
+            <p className="substitution-message">{substitutionMessage}</p>
           )}
         </div>
       )}

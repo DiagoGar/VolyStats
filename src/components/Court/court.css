@@ -211,6 +211,41 @@
   align-items: flex-start;
 }
 
+.serve-row--rotation {
+  align-items: flex-start;
+}
+
+.rotation-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rotation-advance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #d3c2a0;
+  background: rgba(255, 255, 255, 0.92);
+  color: #5a3b00;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.rotation-advance-btn:hover {
+  background: #fff6df;
+  box-shadow: 0 6px 14px rgba(164, 103, 0, 0.14);
+}
+
+.rotation-advance-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
 .substitution-panel {
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(194, 136, 46, 0.28);
